@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)",
+      "Bash(make:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker start:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(chmod:*)",
+      "Bash(docker-compose:*)",
+      "Bash(curl:*)",
+      "Bash(ruff check:*)",
+      "Bash(ruff format:*)",
+      "Bash(ty check:*)",
+      "Bash(uv venv:*)",
+      "Bash(uv sync:*)",
+      "Bash(source:*)",
+      "Bash(uv add:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run:*)"
+    ],
+    "deny": []
+  }
+}
