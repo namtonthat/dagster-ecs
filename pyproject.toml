@@ -1,29 +1,21 @@
-[build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "dagster-ecs-fargate"
 version = "0.1.0"
 description = "Dagster deployment on AWS ECS Fargate with EFS storage"
 requires-python = ">=3.12"
 dependencies = [
-    "dagster>=1.8.0",
-    "dagster-webserver>=1.8.0",
-    "dagster-postgres>=0.23.0",
-    "dagster-aws>=0.23.0",
-    "psycopg2-binary>=2.9.0",
-    "boto3>=1.26.0",
-    "pandas>=2.0.0",
+  "dagster>=1.8.0",
+  "dagster-webserver>=1.8.0",
+  "dagster-postgres>=0.23.0",
+  "dagster-aws>=0.23.0",
+  "psycopg2-binary>=2.9.0",
+  "boto3>=1.26.0",
+  "pandas>=2.0.0",
+  "pre-commit>=4.2.0",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
-    "ty==0.0.1a12",
-]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0", "ruff>=0.1.0", "ty==0.0.1a12"]
 
 [tool.ruff]
 line-length = 88
@@ -37,16 +29,8 @@ ignore = ["E501"]
 quote-style = "double"
 indent-style = "space"
 
-[tool.setuptools]
-packages = ["dags"]
-
-[tool.ty]
-src = ["dags/"]
-
 [dependency-groups]
-dev = [
-    "pytest>=8.4.1",
-    "pytest-cov>=6.2.1",
-    "ruff>=0.12.1",
-    "ty>=0.0.1a12",
-]
+dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "ruff>=0.12.1", "ty>=0.0.1a12"]
+
+[tool.ty.overrides]
+exclude = ["dags/main/template_dag.py"]

@@ -46,7 +46,9 @@ def template_processed_data(template_input_data: dict[str, Any]) -> dict[str, An
 
 
 @asset(key_prefix=f"repos/{REPOSITORY_NAME}")
-def template_output_data(template_processed_data: dict[str, Any]) -> AssetMaterialization:
+def template_output_data(
+    template_processed_data: dict[str, Any],
+) -> AssetMaterialization:
     """Save processed data to storage.
 
     TODO: Replace with your data saving logic.

@@ -42,6 +42,12 @@ make dev-logs      # View local logs
 make dev-reset     # Reset local database and restart
 ```
 
+### DAG Development
+```bash
+make create name=my_pipeline   # Create new DAG from template
+make test                      # Run type checking, linting, and tests
+```
+
 ### Repository Management (External DAGs)
 ```bash
 # Add external repository as code location

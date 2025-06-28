@@ -1,4 +1,4 @@
-.PHONY: help dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy
+.PHONY: help dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test
 
 # Default target
 help:
@@ -8,6 +8,10 @@ help:
 	@echo "    stop        - Stop local environment"
 	@echo "    dev-logs    - View local logs"
 	@echo "    dev-reset   - Reset local database and restart"
+	@echo ""
+	@echo "  DAG Development:"
+	@echo "    create name=<name> - Create new DAG from template"
+	@echo "    test        - Run type checking, linting, and tests"
 	@echo ""
 	@echo "  Deployment:"
 	@echo "    build       - Build and tag Docker images"
@@ -77,4 +81,30 @@ infra-apply:
 infra-destroy:
 	@echo "Destroying infrastructure..."
 	cd infrastructure && tofu destroy
+
+# DAG Development
+create:
+	@if [ -z "$(name)" ]; then \
+		echo "Error: name parameter required. Usage: make create name=my_pipeline"; \
+		exit 1; \
+	fi
+	@if [ -f "dags/main/$(name)_dag.py" ]; then \
+		echo "Error: DAG $(name)_dag.py already exists"; \
+		exit 1; \
+	fi
+	@echo "Creating new DAG: $(name)_dag.py"
+	@cp dags/main/template_dag.py dags/main/$(name)_dag.py
+	@sed -i.bak 's/template/$(name)/g' dags/main/$(name)_dag.py
+	@rm dags/main/$(name)_dag.py.bak
+	@echo "DAG created successfully at dags/main/$(name)_dag.py"
+	@echo "Remember to update the asset and job logic for your use case"
+
+test:
+	@echo "Running type checking..."
+	ty check
+	@echo "Running linting..."
+	ruff check . --fix
+	ruff format .
+	@echo "Running tests..."
+	pytest
 

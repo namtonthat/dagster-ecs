@@ -21,7 +21,8 @@
       "Bash(source:*)",
       "Bash(uv add:*)",
       "Bash(uv run ruff:*)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(ty:*)"
     ],
     "deny": []
   }
