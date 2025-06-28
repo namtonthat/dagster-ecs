@@ -28,7 +28,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        uses: uv sync
+        run: uv sync
 
       - name: Run tests
         run: |
@@ -84,4 +84,3 @@ jobs:
           aws ecs wait services-stable \
             --cluster $ECS_CLUSTER \
             --services $ECS_SERVICE
-
