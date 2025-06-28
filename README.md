@@ -18,13 +18,15 @@ Modern data orchestration platform deployed on AWS ECS Fargate with EFS storage 
 - **ECR**: Container registry for Dagster application images
 - **S3**: Object storage with prefix-based isolation per repository
 
-### 📁 DAG Organization
+### 📁 DAG Organisation
 
 ```
 dags/
 ├── main/           # Main repository DAGs
-├── repo-2/         # Additional repository DAGs
-└── repo-n/         # Each repo gets its own namespace
+│   ├── template_dag.py    # Template for creating new DAGs
+│   └── resources.py       # S3 prefix isolation resources
+├── external_repos/        # External repository DAGs (managed via make commands)
+└── tests/                 # DAG tests
 ```
 
 Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
@@ -44,13 +46,13 @@ Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
    ```bash
    git clone <repo-url>
    cd dagster-ecs
-   uv sync
+   make install  # Installs Python dependencies with uv
    ```
 
 2. **Start local environment**:
 
    ```bash
-   docker-compose up -d
+   make dev  # Starts local Dagster stack
    ```
 
 3. **Access Dagster UI**:
@@ -73,7 +75,7 @@ Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
 
 3. **Verify in Dagster UI**:
    - Check that your DAG appears in the UI
-   - Test asset materialization
+   - Test asset materialisation
    - Verify S3 prefix isolation
 
 4. **Deploy**:
@@ -136,7 +138,7 @@ make dev
 ### ✅ Pre-deployment Checklist
 
 - [ ] DAG appears in local Dagster UI
-- [ ] All assets materialize successfully
+- [ ] All assets materialise successfully
 - [ ] S3 operations use correct prefix
 - [ ] No linting or type errors
 - [ ] Tests pass
@@ -184,33 +186,6 @@ Set in task definition:
 - `AWS_DEFAULT_REGION`: ap-southeast-2
 - `S3_BUCKET`: Dagster storage bucket
 
-## 🎯 Make Commands
-
-All common operations are available via Makefile:
-
-```bash
-# DAG Development
-make create name=my_pipeline   # Create new DAG from template
-make test                      # Run type checking, linting, and tests
-
-# Local Development  
-make dev                       # Start local Dagster stack
-make stop                      # Stop local environment
-make dev-logs                  # View local logs
-make dev-reset                 # Reset local database and restart
-
-# Deployment
-make build                     # Build and tag Docker images
-make push                      # Push images to ECR
-make deploy                    # Deploy latest images to ECS
-make logs                      # View ECS service logs
-
-# Infrastructure
-make infra-init                # Initialize OpenTofu backend
-make infra-plan                # Preview infrastructure changes
-make infra-apply               # Apply infrastructure changes
-make infra-destroy             # Destroy infrastructure
-```
 
 ## 💬 Support
 
