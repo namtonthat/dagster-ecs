@@ -203,8 +203,8 @@ docker push <ecr-repo-url>:latest
 
 # Update ECS service
 aws ecs update-service \
-  --cluster dagster-dev-fargate-cluster \
-  --service dagster-dev-service-fargate \
+  --cluster dagster-ecs-fargate-cluster \
+  --service dagster-ecs-service-fargate \
   --force-new-deployment
 ```
 

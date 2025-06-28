@@ -55,11 +55,11 @@ push:
 deploy:
 	@echo "Deploying to ECS Fargate..."
 	@echo "Note: This requires ECS cluster to be created via infrastructure"
-	aws ecs update-service --cluster dagster-dev-fargate-cluster --service dagster-dev-service-fargate --force-new-deployment
+	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-service-fargate --force-new-deployment
 
 logs:
 	@echo "Viewing ECS Fargate logs..."
-	aws logs tail /ecs/dagster-dev-fargate --follow
+	aws logs tail /ecs/dagster-ecs-fargate --follow
 
 # Infrastructure management
 infra-init:

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "dagster-ecs-fargate"
 version = "0.1.0"
@@ -32,6 +36,9 @@ ignore = ["E501"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.setuptools]
+packages = ["dags"]
 
 [tool.ty]
 src = ["dags/"]

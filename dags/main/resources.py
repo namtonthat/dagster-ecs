@@ -69,7 +69,7 @@ def get_repository_resources(repository_name: str | None = None) -> dict:
         repository_prefix = f"repos/{repository_name}"
 
     # Get S3 bucket name from environment
-    bucket_name = os.getenv("DAGSTER_S3_BUCKET", "dagster-dev-storage")
+    bucket_name = os.getenv("DAGSTER_S3_BUCKET", "dagster-ecs-storage")
 
     return {
         "s3": S3PrefixResource(
