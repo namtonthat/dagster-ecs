@@ -12,6 +12,7 @@ dependencies = [
   "boto3>=1.26.0",
   "pandas>=2.0.0",
   "pre-commit>=4.2.0",
+  "commitizen>=3.29.0",
 ]
 
 [project.optional-dependencies]
@@ -31,3 +32,10 @@ indent-style = "space"
 
 [dependency-groups]
 dev = ["pytest>=8.4.1", "pytest-cov>=6.2.1", "ruff>=0.12.1", "ty>=0.0.1a12"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+update_changelog_on_bump = true

@@ -22,7 +22,9 @@
       "Bash(uv add:*)",
       "Bash(uv run ruff:*)",
       "Bash(uv run:*)",
-      "Bash(ty:*)"
+      "Bash(ty:*)",
+      "Bash(git config:*)",
+      "Bash(pre-commit install:*)"
     ],
     "deny": []
   }
