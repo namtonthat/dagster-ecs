@@ -22,14 +22,37 @@ Modern data orchestration platform deployed on AWS ECS Fargate with EFS storage 
 
 ```
 dags/
-├── main/           # Main repository DAGs
-│   ├── template_dag.py    # Template for creating new DAGs
+├── main/           # Main repository DAGs and resources
 │   └── resources.py       # S3 prefix isolation resources
 ├── external_repos/        # External repository DAGs (managed via make commands)
-└── tests/                 # DAG tests
+├── tests/                 # DAG tests
+└── your_dag.py            # Your custom DAGs (created via make create)
+templates/
+└── dag.py                 # Template for creating new DAGs
 ```
 
 Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
+
+## 🔄 Development Workflow
+
+```mermaid
+flowchart TD
+    A[Start Development] --> B[make install]
+    B --> C[make dev]
+    C --> D[make create name=my_pipeline]
+    D --> E[Edit DAG Logic]
+    E --> F[make test]
+    F --> G{Tests Pass?}
+    G -->|No| E
+    G -->|Yes| H[Verify in Dagster UI]
+    H --> I[Git Commit & Push]
+    I --> J[CI/CD Pipeline]
+    J --> K[Deploy to ECS]
+    
+    style A fill:#e1f5fe
+    style K fill:#c8e6c9
+    style G fill:#fff3e0
+```
 
 ## 🚀 Quick Start
 

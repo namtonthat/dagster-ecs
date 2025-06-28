@@ -93,15 +93,15 @@ create:
 		echo "Error: name parameter required. Usage: make create name=my_pipeline"; \
 		exit 1; \
 	fi
-	@if [ -f "dags/main/$(name)_dag.py" ]; then \
-		echo "Error: DAG $(name)_dag.py already exists"; \
+	@if [ -f "dags/$(name).py" ]; then \
+		echo "Error: DAG $(name).py already exists"; \
 		exit 1; \
 	fi
-	@echo "Creating new DAG: $(name)_dag.py"
-	@cp dags/main/template_dag.py dags/main/$(name)_dag.py
-	@sed -i.bak 's/template/$(name)/g' dags/main/$(name)_dag.py
-	@rm dags/main/$(name)_dag.py.bak
-	@echo "DAG created successfully at dags/main/$(name)_dag.py"
+	@echo "Creating new DAG: $(name).py"
+	@cp templates/dag.py dags/$(name).py
+	@sed -i.bak 's/template/$(name)/g' dags/$(name).py
+	@rm dags/$(name).py.bak
+	@echo "DAG created successfully at dags/$(name).py"
 	@echo "Remember to update the asset and job logic for your use case"
 
 test:
