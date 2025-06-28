@@ -1,9 +1,10 @@
-.PHONY: help dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test
+.PHONY: help install dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  Local Development:"
+	@echo "    install     - Install Python dependencies with uv"
 	@echo "    dev         - Start local Dagster stack with Docker Compose"
 	@echo "    stop        - Stop local environment"
 	@echo "    dev-logs    - View local logs"
@@ -26,6 +27,10 @@ help:
 	@echo "    infra-destroy - Destroy infrastructure"
 
 # Local Development
+install:
+	@echo "Installing Python dependencies..."
+	uv sync
+
 dev:
 	@echo "Starting local Dagster stack..."
 	docker-compose up -d

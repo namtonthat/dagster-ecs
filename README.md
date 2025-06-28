@@ -1,10 +1,16 @@
 # Dagster ECS Fargate Deployment
 
+[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6+-purple.svg)](https://opentofu.org/)
+[![Dagster](https://img.shields.io/badge/Dagster-1.8+-orange.svg)](https://dagster.io/)
+[![AWS ECS](https://img.shields.io/badge/AWS-ECS%20Fargate-orange.svg)](https://aws.amazon.com/ecs/)
+
 Modern data orchestration platform deployed on AWS ECS Fargate with EFS storage for scalable, serverless data pipeline management.
 
-## Architecture
+## 🏗️ Architecture
 
-### Infrastructure Components
+### ☁️ Infrastructure Components
 
 - **ECS Fargate**: Serverless container orchestration for auto-scaling Dagster services
 - **EFS**: Elastic File System for persistent DAG storage across containers
@@ -12,7 +18,7 @@ Modern data orchestration platform deployed on AWS ECS Fargate with EFS storage 
 - **ECR**: Container registry for Dagster application images
 - **S3**: Object storage with prefix-based isolation per repository
 
-### DAG Organization
+### 📁 DAG Organization
 
 ```
 dags/
@@ -23,15 +29,15 @@ dags/
 
 Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
 
-## Quick Start
+## 🚀 Quick Start
 
-### Prerequisites
+### 📋 Prerequisites
 
 - Docker and Docker Compose
 - uv (Python package manager)
 - Python 3.12+
 
-### Local Development
+### 💻 Local Development
 
 1. **Clone and setup**:
 
@@ -50,27 +56,19 @@ Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
 3. **Access Dagster UI**:
    Open <http://localhost:3000>
 
-### Development Workflow
+### 🔄 Development Workflow
 
 1. **Create new DAG**:
 
    ```bash
-   cp dags/main/template_dag.py dags/main/my_new_dag.py
-   # Edit the DAG with your logic
+   make create name=my_new_dag
+   # Edit the generated DAG with your logic
    ```
 
 2. **Test locally**:
 
    ```bash
-   # Lint and format
-   uv run ruff check dags/
-   uv run ruff format dags/
-   
-   # Type check
-   uv run ty check dags/
-   
-   # Run tests
-   uv run pytest dags/ -v
+   make test  # Runs type checking, linting, and tests
    ```
 
 3. **Verify in Dagster UI**:
@@ -88,64 +86,31 @@ Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
 
    The CI/CD pipeline will automatically deploy to AWS ECS.
 
-## Writing DAGs
+## ✍️ Writing DAGs
 
-### Template DAG Structure
+### 📝 DAG Creation
 
-Use the template in `dags/main/template_dag.py`:
+Create new DAGs using the Makefile command:
 
-```python
-from dagster import AssetMaterialization, asset, job
-from dags.main.resources import get_repository_resources
-
-# Replace 'template' with your DAG name
-REPOSITORY_NAME = "template"
-
-@asset(key_prefix=f"repos/{REPOSITORY_NAME}")
-def template_data_asset():
-    """Template data processing asset.
-    
-    Replace this with your actual data processing logic.
-    """
-    # Your data processing logic here
-    return {"processed_records": 100}
-
-@job(name=f"{REPOSITORY_NAME}_pipeline")
-def template_pipeline():
-    """Template pipeline job."""
-    template_data_asset()
-
-# Repository definition
-defs = get_repository_resources(
-    repository_name=REPOSITORY_NAME,
-    assets=[template_data_asset],
-    jobs=[template_pipeline],
-)
+```bash
+make create name=my_pipeline
 ```
 
-### Creating a New DAG
+This automatically:
+- Copies the template DAG
+- Replaces all template references with your DAG name
+- Creates `dags/main/my_pipeline_dag.py`
 
-1. **Copy template**:
+### 🔧 Customizing Your DAG
 
-   ```bash
-   cp dags/main/template_dag.py dags/main/my_pipeline.py
-   ```
+After creating a new DAG:
 
-2. **Update the DAG**:
-   - Change `REPOSITORY_NAME = "my_pipeline"`
-   - Rename functions (e.g., `my_pipeline_data_asset`)
-   - Implement your data processing logic
-   - Update docstrings and comments
+1. **Implement your logic** in the generated file
+2. **Update asset functions** with your data processing
+3. **Test locally** with `make test`
+4. **Verify in Dagster UI** at http://localhost:3000
 
-3. **Register in workspace**:
-   Add to `workspace.yaml`:
-
-   ```yaml
-   load_from:
-     - python_module: dags.main.my_pipeline
-   ```
-
-### S3 Integration
+### 🗄️ S3 Integration
 
 All assets automatically get S3 prefix isolation:
 
@@ -154,27 +119,21 @@ All assets automatically get S3 prefix isolation:
 
 The S3PrefixResource handles this automatically - just use standard Dagster S3 operations.
 
-## Testing Strategy
+## 🧪 Testing Strategy
 
-### Local Testing
+### 🏠 Local Testing
 
 ```bash
-# Lint and format
-uv run ruff check dags/
-uv run ruff format dags/
+# Run all tests (type checking, linting, pytest)
+make test
 
-# Type checking
-uv run ty check dags/
+# Start local development environment
+make dev
 
-# Unit tests
-uv run pytest dags/ -v
-
-# Integration tests (requires Docker)
-docker-compose up -d
 # Test DAGs in Dagster UI at http://localhost:3000
 ```
 
-### Pre-deployment Checklist
+### ✅ Pre-deployment Checklist
 
 - [ ] DAG appears in local Dagster UI
 - [ ] All assets materialize successfully
@@ -182,9 +141,9 @@ docker-compose up -d
 - [ ] No linting or type errors
 - [ ] Tests pass
 
-## Deployment
+## 🚢 Deployment
 
-### CI/CD Pipeline
+### 🔄 CI/CD Pipeline
 
 The GitHub Actions workflow automatically:
 
@@ -193,7 +152,7 @@ The GitHub Actions workflow automatically:
 3. Pushes to ECR
 4. Deploys to ECS Fargate
 
-### Manual Deployment
+### 🛠️ Manual Deployment
 
 ```bash
 # Build and push image
@@ -208,16 +167,16 @@ aws ecs update-service \
   --force-new-deployment
 ```
 
-## Environment Variables
+## 🌍 Environment Variables
 
-### Local Development
+### 🏠 Local Development
 
 Set in `docker-compose.yml`:
 
 - `DAGSTER_POSTGRES_*`: Database connection
 - `DAGSTER_HOME`: Dagster configuration directory
 
-### Production (ECS)
+### ☁️ Production (ECS)
 
 Set in task definition:
 
@@ -225,107 +184,35 @@ Set in task definition:
 - `AWS_DEFAULT_REGION`: ap-southeast-2
 - `S3_BUCKET`: Dagster storage bucket
 
-## Template DAG
+## 🎯 Make Commands
 
-Create new DAGs by copying and modifying this template:
+All common operations are available via Makefile:
 
-```python
-"""
-Template DAG for Dagster ECS deployment.
-Copy this file and replace 'template' with your DAG name throughout.
-"""
+```bash
+# DAG Development
+make create name=my_pipeline   # Create new DAG from template
+make test                      # Run type checking, linting, and tests
 
-from typing import Any
+# Local Development  
+make dev                       # Start local Dagster stack
+make stop                      # Stop local environment
+make dev-logs                  # View local logs
+make dev-reset                 # Reset local database and restart
 
-from dagster import AssetMaterialization, asset, job
-from dags.main.resources import get_repository_resources
+# Deployment
+make build                     # Build and tag Docker images
+make push                      # Push images to ECR
+make deploy                    # Deploy latest images to ECS
+make logs                      # View ECS service logs
 
-# TODO: Replace 'template' with your DAG name
-REPOSITORY_NAME = "template"
-
-
-@asset(key_prefix=f"repos/{REPOSITORY_NAME}")
-def template_input_data() -> dict[str, Any]:
-    """Load input data for processing.
-    
-    TODO: Replace with your data loading logic.
-    """
-    # Example: Load from database, API, or file
-    return {
-        "records": [
-            {"id": 1, "value": "data1"},
-            {"id": 2, "value": "data2"},
-        ]
-    }
-
-
-@asset(key_prefix=f"repos/{REPOSITORY_NAME}")
-def template_processed_data(template_input_data: dict[str, Any]) -> dict[str, Any]:
-    """Process the input data.
-    
-    TODO: Replace with your data processing logic.
-    """
-    records = template_input_data["records"]
-    
-    # Example processing
-    processed = [
-        {**record, "processed": True, "length": len(record["value"])}
-        for record in records
-    ]
-    
-    return {"processed_records": processed}
-
-
-@asset(key_prefix=f"repos/{REPOSITORY_NAME}")
-def template_output_data(template_processed_data: dict[str, Any]) -> AssetMaterialization:
-    """Save processed data to storage.
-    
-    TODO: Replace with your data saving logic.
-    """
-    processed_records = template_processed_data["processed_records"]
-    
-    # Example: Save to S3, database, or API
-    # The S3 operations will automatically use the correct prefix
-    output_path = f"output/processed_data_{len(processed_records)}_records.json"
-    
-    return AssetMaterialization(
-        asset_key=f"repos/{REPOSITORY_NAME}/output_data",
-        description=f"Processed {len(processed_records)} records",
-        metadata={
-            "records_count": len(processed_records),
-            "output_path": output_path,
-        },
-    )
-
-
-@job(name=f"{REPOSITORY_NAME}_pipeline")
-def template_pipeline():
-    """Main pipeline for template processing.
-    
-    TODO: Update job name and add your pipeline logic.
-    """
-    input_data = template_input_data()
-    processed_data = template_processed_data(input_data)
-    template_output_data(processed_data)
-
-
-# Repository definition - connects assets and jobs
-defs = get_repository_resources(
-    repository_name=REPOSITORY_NAME,
-    assets=[template_input_data, template_processed_data, template_output_data],
-    jobs=[template_pipeline],
-)
+# Infrastructure
+make infra-init                # Initialize OpenTofu backend
+make infra-plan                # Preview infrastructure changes
+make infra-apply               # Apply infrastructure changes
+make infra-destroy             # Destroy infrastructure
 ```
 
-To use this template:
-
-1. Copy to a new file: `cp dags/main/template_dag.py dags/main/your_dag_name.py`
-2. Replace all instances of `template` with your DAG name
-3. Implement your specific data processing logic
-4. Update the workspace.yaml to include your new module
-5. Test locally before deploying
-
-## Support
+## 💬 Support
 
 For issues or questions:
 
