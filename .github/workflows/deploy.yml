@@ -36,9 +36,9 @@ jobs:
 
       - name: Run linting and type checking
         run: |
-          ruff check dags/
-          ruff format --check dags/
-          ty check dags/
+          uv run ruff check dags/
+          uv run ruff format --check dags/
+          uv run ty check dags/
 
   build-and-deploy:
     needs: test
