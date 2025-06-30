@@ -1,5 +1,15 @@
 # Dagster Instance Configuration for Local Development
-# This file configures the Dagster instance for local Docker Compose development
+# 
+# This file configures the Dagster instance for local Docker Compose development.
+# It provides a lightweight configuration optimized for development workflows
+# with local PostgreSQL storage and Docker-based run execution.
+#
+# Key features:
+# - Local PostgreSQL storage for metadata
+# - Docker run launcher for isolated execution
+# - Local compute logs and artifact storage
+# - Reduced retention periods for development
+# - Disabled telemetry and auto-materialization
 
 # PostgreSQL storage configuration
 storage:

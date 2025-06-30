@@ -1,0 +1,19 @@
+# Dagster Workspace Configuration for Production
+#
+# This file defines the code locations that Dagster will load in production.
+# It points to both fallback DAGs (built into the container) and dynamically
+# synced DAGs from S3 storage.
+#
+# Note: This file is used as a fallback when S3 sync is disabled or fails.
+# In normal operation, the entrypoint script downloads an updated workspace.yaml
+# from S3 that may contain additional or different code locations.
+
+load_from:
+  # Built-in test DAG that's always available
+  - python_file:
+      relative_path: test_dag.py
+      location_name: test_location
+  # S3-synced DAGs (will be available after sync completes)
+  - python_file:
+      relative_path: dags/dagster_quickstart/defs/assets.py
+      location_name: dagster_quickstart

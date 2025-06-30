@@ -40,8 +40,11 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
     && rm -rf awscliv2.zip aws
 
 # Copy workspace and instance configuration
-COPY workspace.yaml ./
-COPY dagster.yaml ./.dagster_home/dagster.yaml
+COPY docker/workspace-production.yaml ./workspace.yaml
+COPY docker/dagster-production.yaml ./.dagster_home/dagster.yaml
+
+# Copy a minimal test DAG to ensure Dagster can start even if S3 sync fails
+COPY test_dag.py ./test_dag.py
 
 # Copy nginx configuration
 COPY docker/nginx.conf /etc/nginx/sites-available/default
@@ -51,9 +54,10 @@ RUN rm -f /etc/nginx/sites-enabled/default && \
 # Copy supervisor configuration for running both nginx and dagster
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Copy entrypoint script
+# Copy entrypoint and sync scripts
 COPY docker/entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+COPY docker/sync-from-s3.sh ./sync-from-s3.sh
+RUN chmod +x ./entrypoint.sh ./sync-from-s3.sh
 
 # DAGSTER_S3_BUCKET environment variable is required - must be set at runtime
 
@@ -69,15 +73,26 @@ CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 # Local development stage - lightweight without cloud dependencies
 FROM base AS local
 
-# Copy application code and configuration
+# Install AWS CLI v2 for ARM64 (needed for S3 sync in local dev)
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install \
+    && rm -rf awscliv2.zip aws
+
+# Copy fallback files (used when S3 sync is disabled)
 COPY dags/ /app/dags/
-COPY workspace.yaml /app/
+COPY docker/workspace-local.yaml /app/workspace.yaml
+
+# Copy entrypoint and sync scripts (same as production)
+COPY docker/entrypoint.sh ./entrypoint.sh
+COPY docker/sync-from-s3.sh ./sync-from-s3.sh
+RUN chmod +x ./entrypoint.sh ./sync-from-s3.sh
 
 # Expose dagster port directly (no nginx proxy needed for local dev)
 EXPOSE 3000
 
-# Override entrypoint from production stage - use default entrypoint for local
-ENTRYPOINT []
+# Use same entrypoint as production for S3 sync consistency
+ENTRYPOINT ["./entrypoint.sh"]
 
-# Simple command that runs dagster directly
+# Simple command that runs dagster directly (passed to entrypoint)
 CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]

@@ -63,7 +63,9 @@
       "Bash(git commit:*)",
       "Bash(env)",
       "Bash(aws:*)",
-      "Bash(terraform:*)"
+      "Bash(terraform:*)",
+      "Bash(python:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

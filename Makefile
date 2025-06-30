@@ -1,4 +1,4 @@
-.PHONY: help install start stop logs reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test aws-url aws-account-id aws-creds
+.PHONY: help install start stop logs reset build-local build push deploy-dags deploy-workspace deploy-all deploy ecs-logs infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show url aws-account-id aws-credentials
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
@@ -48,9 +48,21 @@ build: ## Build and tag Docker images (production target)
 push: ## Push images to ECR
 	@./scripts/push.sh
 
-deploy: ## Deploy latest images to ECS Fargate
+deploy-dags: ## Deploy dags to AWS S3
 	@echo "Deploying DAGs to S3..."
 	./scripts/deploy-dags.sh
+
+deploy-workspace: ## Deploy workspace.yaml to AWS S3
+	@echo "Deploying workspace.yaml to S3..."
+	./scripts/deploy-workspace.sh
+
+deploy-all: ## Deploy DAGs and workspace to S3, then restart ECS service
+	@echo "Deploying all files and restarting ECS service..."
+	./scripts/deploy-dags.sh
+	./scripts/deploy-workspace.sh
+	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
+
+deploy: ## Deploy latest images to ECS Fargate
 	@echo "Deploying to ECS Fargate..."
 	@echo "Note: This requires ECS cluster to be created via infrastructure"
 	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
@@ -96,14 +108,14 @@ auth-show: ## Show current authentication configuration
 
 ##@ AWS Related Information
 
-aws-url: ## Show Dagster web UI URL
+url: ## Show Dagster web UI URL
 	@echo "Fetching Dagster web UI URL..."
 	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url
 
 aws-account-id: ## Show AWS Account ID
 	@aws sts get-caller-identity --query Account --output text
 
-aws-creds: ## Show AWS credentials for S3 access
+aws-credentials: ## Show AWS credentials for S3 access (access key + secret key, one per line)
 	@tofu -chdir=$(INFRA_DIR) output -raw aws_access_key_id; echo
 	@tofu -chdir=$(INFRA_DIR) output -raw aws_secret_access_key; echo
 

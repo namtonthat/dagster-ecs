@@ -1,5 +1,15 @@
-# Dagster Instance Configuration
-# This file configures the Dagster instance for both local development and production deployment
+# Dagster Instance Configuration for Production (ECS Fargate)
+#
+# This file configures the Dagster instance for production deployment on AWS ECS Fargate.
+# It provides enterprise-grade configuration with cloud-native storage and execution.
+#
+# Key features:
+# - PostgreSQL RDS storage for metadata persistence
+# - ECS Fargate run launcher for scalable execution
+# - S3 compute logs for centralized logging
+# - Cloud Map service discovery integration
+# - Production-grade retention policies
+# - ARM64 architecture for cost optimization
 
 # PostgreSQL storage configuration
 storage:

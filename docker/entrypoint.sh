@@ -30,8 +30,8 @@ setup_auth() {
     echo "WARNING: Using default credentials! Set DAGSTER_AUTH_USER and DAGSTER_AUTH_PASSWORD environment variables for security."
 }
 
-# Function to sync DAGs from S3
-sync_dags() {
+# Function to sync DAGs and workspace from S3
+sync_from_s3() {
     echo "Starting S3 sync function..."
     
     if [ -z "$DAGSTER_S3_BUCKET" ]; then
@@ -39,9 +39,9 @@ sync_dags() {
         exit 1
     fi
 
-    echo "Syncing DAGs from S3 bucket: $DAGSTER_S3_BUCKET"
+    echo "Syncing DAGs and workspace from S3 bucket: $DAGSTER_S3_BUCKET"
     
-    # Create dags directory if it doesn't exist
+    # Create directories if they don't exist
     echo "Creating /app/dags directory..."
     mkdir -p /app/dags
     ls -la /app/
@@ -55,34 +55,60 @@ sync_dags() {
     aws s3 ls "s3://$DAGSTER_S3_BUCKET/" || echo "S3 bucket access test failed"
     
     # Sync DAGs from S3 to local filesystem (from dags/ prefix in S3)
-    echo "Running S3 sync command..."
+    echo "Running S3 DAGs sync command..."
     # The --delete flag removes files that are no longer in S3
     timeout 30 aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps
-    SYNC_EXIT_CODE=$?
+    DAGS_SYNC_EXIT_CODE=$?
     
-    if [ $SYNC_EXIT_CODE -eq 0 ]; then
+    # Sync workspace.yaml from S3 to local filesystem
+    echo "Running S3 workspace sync command..."
+    timeout 30 aws s3 cp "s3://$DAGSTER_S3_BUCKET/workspace.yaml" /app/workspace.yaml || echo "Workspace file not found in S3, using local fallback"
+    WORKSPACE_SYNC_EXIT_CODE=$?
+    
+    if [ $DAGS_SYNC_EXIT_CODE -eq 0 ]; then
         echo "Successfully synced DAGs from S3"
         echo "DAG files found:"
         find /app/dags -name "*.py" -type f | head -10
         echo "Directory contents:"
         ls -la /app/dags/
         echo "Last sync: $(date)"
-        return 0
     else
-        echo "ERROR: Failed to sync DAGs from S3 (exit code: $SYNC_EXIT_CODE)"
+        echo "ERROR: Failed to sync DAGs from S3 (exit code: $DAGS_SYNC_EXIT_CODE)"
         return 1
     fi
+    
+    # Check workspace file status
+    if [ -f "/app/workspace.yaml" ]; then
+        echo "Workspace file successfully available at /app/workspace.yaml"
+        echo "Workspace file size: $(wc -c < /app/workspace.yaml) bytes"
+    else
+        echo "WARNING: No workspace.yaml file found, Dagster may fail to start"
+        return 1
+    fi
+    
+    return 0
 }
 
 # Function to run periodic sync in background
 periodic_sync() {
-    # Wait for initial startup
+    echo "$(date): Starting periodic sync daemon..."
+    
+    # Wait for initial startup to complete
     sleep 30
     
     while true; do
-        echo "Performing periodic DAG sync..."
-        timeout 30 aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps --quiet || echo "Periodic sync failed, will retry in 10 minutes"
-        sleep 600  # Sync every 10 minutes
+        echo "$(date): Performing periodic DAG and workspace sync..."
+        
+        # Use the dedicated sync script
+        if ./sync-from-s3.sh; then
+            echo "$(date): Periodic sync completed successfully"
+        else
+            echo "$(date): Periodic sync failed, will retry in 10 minutes"
+        fi
+        
+        # Sleep for 10 minutes (600 seconds)
+        echo "$(date): Next sync in 10 minutes..."
+        sleep 600
     done
 }
 
@@ -95,11 +121,14 @@ if [ "$AWS_ACCESS_KEY_ID" = "local" ] || [ "$AWS_SECRET_ACCESS_KEY" = "local" ];
     SYNC_PID=""
 else
     # Initial sync - this must succeed for container to start
-    sync_dags
+    echo "$(date): Running initial S3 sync..."
+    sync_from_s3
     
-    # Start periodic sync in background
+    # Start periodic sync in background as a daemon
+    echo "$(date): Starting periodic sync daemon..."
     periodic_sync &
     SYNC_PID=$!
+    echo "$(date): Periodic sync daemon started with PID: $SYNC_PID"
 fi
 
 # Fix permissions for dagster home directory
