@@ -71,7 +71,7 @@ push:
 deploy:
 	@echo "Deploying to ECS Fargate..."
 	@echo "Note: This requires ECS cluster to be created via infrastructure"
-	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-service-fargate --force-new-deployment
+	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
 
 logs:
 	@echo "Viewing ECS Fargate logs..."
