@@ -5,7 +5,7 @@ Copy this file and replace 'template' with your DAG name throughout.
 
 from typing import Any
 
-from dagster import AssetMaterialization, asset, job
+from dagster import AssetMaterialization, Definitions, asset, job
 
 from dags.main.resources import get_repository_resources
 
@@ -80,9 +80,9 @@ def template_pipeline():
     template_output_data(processed_data)
 
 
-# Repository definition - connects assets and jobs
-defs = get_repository_resources(
-    repository_name=REPOSITORY_NAME,
+# Repository definition - connects assets, jobs, and resources
+defs = Definitions(
     assets=[template_input_data, template_processed_data, template_output_data],
     jobs=[template_pipeline],
+    resources=get_repository_resources(REPOSITORY_NAME),
 )

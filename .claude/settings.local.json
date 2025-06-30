@@ -57,7 +57,9 @@
       "Bash(aws secretsmanager describe-secret:*)",
       "WebFetch(domain:dagster-ecs-alb-1924936045.ap-southeast-2.elb.amazonaws.com)",
       "Bash(./scripts/security-check.sh:*)",
-      "Bash(./scripts/ci-simulation.sh:*)"
+      "Bash(./scripts/ci-simulation.sh:*)",
+      "Bash(python test:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

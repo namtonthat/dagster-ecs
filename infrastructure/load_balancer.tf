@@ -36,7 +36,7 @@ resource "aws_lb" "main" {
 
 resource "aws_lb_target_group" "dagster" {
   name        = "${local.name_prefix}-tg"
-  port        = 3000
+  port        = 80
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
@@ -46,7 +46,7 @@ resource "aws_lb_target_group" "dagster" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/server_info"
+    path                = "/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5

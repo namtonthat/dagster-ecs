@@ -38,3 +38,16 @@ variable "s3_bucket_name" {
   description = "S3 bucket name for Dagster storage"
   type        = string
 }
+
+variable "dagster_auth_user" {
+  description = "Username for Dagster basic authentication"
+  type        = string
+  default     = "admin"
+}
+
+variable "dagster_auth_password" {
+  description = "Password for Dagster basic authentication"
+  type        = string
+  sensitive   = true
+  # No default - must be provided via terraform.tfvars
+}

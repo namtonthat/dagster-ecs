@@ -1,0 +1,210 @@
+# Dagster Instance Configuration
+# This file configures the Dagster instance for both local development and production deployment
+
+# PostgreSQL storage configuration
+storage:
+  postgres:
+    postgres_db:
+      hostname:
+        env: DAGSTER_POSTGRES_HOST
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port:
+        env: DAGSTER_POSTGRES_PORT
+
+# S3 compute logs - captures stdout/stderr from all compute operations
+compute_logs:
+  module: dagster_aws.s3.compute_log_manager
+  class: S3ComputeLogManager
+  config:
+    bucket:
+      env: DAGSTER_S3_BUCKET
+    prefix: "logs/compute/"
+    region:
+      env: AWS_DEFAULT_REGION
+
+# Run storage - stores run metadata and status
+run_storage:
+  module: dagster.core.storage.runs
+  class: SqlRunStorage
+
+# Event log storage - stores all events from runs (with S3 for large events)
+event_log_storage:
+  module: dagster.core.storage.event_log
+  class: SqlEventLogStorage
+
+# Schedule storage - stores schedule metadata
+schedule_storage:
+  module: dagster.core.storage.schedules
+  class: SqlScheduleStorage
+
+# Local artifact storage for temporary files
+local_artifact_storage:
+  module: dagster.core.storage.root
+  class: LocalArtifactStorage
+  config:
+    base_dir: "/app/.dagster_home/storage"
+
+# ECS run launcher - each run executes in a fresh ECS Fargate task
+run_launcher:
+  module: dagster_aws.ecs
+  class: EcsRunLauncher
+  config:
+    cluster:
+      env: DAGSTER_ECS_CLUSTER
+    subnets:
+      env: DAGSTER_ECS_SUBNETS
+    service_discovery_namespace_id:
+      env: DAGSTER_ECS_SERVICE_DISCOVERY_NAMESPACE_ID
+    task_definition:
+      family: "dagster-ecs-run"
+      networkMode: "awsvpc"
+      requiresCompatibilities: ["FARGATE"]
+      cpu: 256
+      memory: 512
+      executionRoleArn:
+        env: DAGSTER_ECS_EXECUTION_ROLE_ARN
+      taskRoleArn:
+        env: DAGSTER_ECS_TASK_ROLE_ARN
+      runtimePlatform:
+        operatingSystemFamily: LINUX
+        cpuArchitecture: ARM64
+      volumes:
+        - name: "dagster-dags"
+          efsVolumeConfiguration:
+            fileSystemId:
+              env: DAGSTER_EFS_FILE_SYSTEM_ID
+            rootDirectory: "/"
+            transitEncryption: "ENABLED"
+      containerDefinitions:
+        - name: "dagster-run"
+          image:
+            env: DAGSTER_DOCKER_IMAGE
+          cpu: 256
+          memory: 512
+          essential: true
+          mountPoints:
+            - sourceVolume: "dagster-dags"
+              containerPath: "/app/dags"
+              readOnly: false
+          environment:
+            - name: "DAGSTER_POSTGRES_USER"
+              value:
+                env: DAGSTER_POSTGRES_USER
+            - name: "DAGSTER_POSTGRES_PASSWORD"
+              value:
+                env: DAGSTER_POSTGRES_PASSWORD
+            - name: "DAGSTER_POSTGRES_DB"
+              value:
+                env: DAGSTER_POSTGRES_DB
+            - name: "DAGSTER_POSTGRES_HOST"
+              value:
+                env: DAGSTER_POSTGRES_HOST
+            - name: "DAGSTER_POSTGRES_PORT"
+              value:
+                env: DAGSTER_POSTGRES_PORT
+            - name: "DAGSTER_S3_BUCKET"
+              value:
+                env: DAGSTER_S3_BUCKET
+            - name: "AWS_DEFAULT_REGION"
+              value:
+                env: AWS_DEFAULT_REGION
+          secrets:
+            - name: "AWS_ACCESS_KEY_ID"
+              valueFrom:
+                env: DAGSTER_AWS_CREDENTIALS_SECRET_ARN_ACCESS_KEY
+            - name: "AWS_SECRET_ACCESS_KEY"
+              valueFrom:
+                env: DAGSTER_AWS_CREDENTIALS_SECRET_ARN_SECRET_KEY
+          logConfiguration:
+            logDriver: "awslogs"
+            options:
+              awslogs-group:
+                env: DAGSTER_ECS_LOG_GROUP
+              awslogs-region:
+                env: AWS_DEFAULT_REGION
+              awslogs-stream-prefix: "ecs-run"
+
+# Queued run coordinator for better control
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 3
+    tag_concurrency_limits:
+      - key: "dagster/backfill"
+        limit: 1
+      - key: "compute_kind"
+        value: "heavy"
+        limit: 1
+
+# Daemon scheduler for schedules and sensors
+scheduler:
+  module: dagster.core.scheduler
+  class: DagsterDaemonScheduler
+
+# Run queue configuration
+run_queue:
+  max_concurrent_runs: 3
+  tag_concurrency_limits:
+    - key: 'compute_kind'
+      value: 'heavy'
+      limit: 1
+
+# Telemetry (disable in production for privacy)
+telemetry:
+  enabled: false
+
+# Run monitoring
+run_monitoring:
+  enabled: true
+  poll_interval_seconds: 30
+
+# Automatic retries for failed runs
+run_retries:
+  enabled: true
+  max_retries: 2
+  retry_on_asset_or_op_failure: true
+
+# Code server timeout for large codebases
+code_servers:
+  local_startup_timeout: 120
+
+# Data retention policies
+retention:
+  schedule:
+    purge_after_days: 90
+  sensor:
+    purge_after_days:
+      skipped: 7
+      failure: 30
+      success: 90
+
+# Sensor configuration
+sensors:
+  use_threads: true
+  num_workers: 4
+
+# Schedule configuration  
+schedules:
+  use_threads: true
+  num_workers: 4
+
+# Backfill configuration
+backfills:
+  use_threads: true
+  num_workers: 2
+
+# Auto-materialization (optional)
+auto_materialize:
+  enabled: false
+  minimum_interval_seconds: 3600
+  use_sensors: false
+
+# Default operation concurrency
+concurrency:
+  default_op_concurrency_limit: 5

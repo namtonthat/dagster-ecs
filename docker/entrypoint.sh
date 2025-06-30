@@ -15,6 +15,21 @@ echo "Current directory: $(pwd)"
 echo "Environment variables:"
 env | grep -E "(AWS|DAGSTER)" || echo "No AWS/DAGSTER environment variables found"
 
+# Function to setup basic auth credentials
+setup_auth() {
+    echo "Setting up basic authentication..."
+    
+    # Default credentials if not provided via environment
+    DAGSTER_AUTH_USER="${DAGSTER_AUTH_USER:-admin}"
+    DAGSTER_AUTH_PASSWORD="${DAGSTER_AUTH_PASSWORD:-DagsterPipeline2024!}"
+    
+    # Generate .htpasswd file
+    echo "$DAGSTER_AUTH_USER:$(openssl passwd -apr1 "$DAGSTER_AUTH_PASSWORD")" > /etc/nginx/.htpasswd
+    
+    echo "Basic auth configured for user: $DAGSTER_AUTH_USER"
+    echo "WARNING: Using default credentials! Set DAGSTER_AUTH_USER and DAGSTER_AUTH_PASSWORD environment variables for security."
+}
+
 # Function to sync DAGs from S3
 sync_dags() {
     echo "Starting S3 sync function..."
@@ -70,6 +85,9 @@ periodic_sync() {
         sleep 60  # Sync every minute
     done
 }
+
+# Setup authentication
+setup_auth
 
 # Initial sync - this must succeed for container to start
 sync_dags

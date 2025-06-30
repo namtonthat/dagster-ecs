@@ -61,7 +61,158 @@ resource "aws_secretsmanager_secret_version" "dagster_aws_credentials" {
   })
 }
 
-# Output the secret ARN for ECS task definition
+# ECS IAM Roles and Policies
+# IAM Role for ECS Task Execution
+resource "aws_iam_role" "ecs_task_execution_fargate" {
+  name = "${local.name_prefix}-ecs-task-execution-fargate"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_fargate" {
+  role       = aws_iam_role.ecs_task_execution_fargate.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# Policy to allow Secrets Manager access for execution role (needed for secrets retrieval)
+resource "aws_iam_role_policy" "ecs_task_execution_fargate_secrets" {
+  name = "${local.name_prefix}-ecs-task-execution-fargate-secrets"
+  role = aws_iam_role.ecs_task_execution_fargate.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.dagster_aws_credentials.arn
+        ]
+      }
+    ]
+  })
+}
+
+# IAM Role for ECS Task
+resource "aws_iam_role" "ecs_task_fargate" {
+  name = "${local.name_prefix}-ecs-task-fargate"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = local.tags
+}
+
+# Policy to allow EFS access
+resource "aws_iam_role_policy" "ecs_task_fargate_efs" {
+  name = "${local.name_prefix}-ecs-task-fargate-efs"
+  role = aws_iam_role.ecs_task_fargate.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess"
+        ]
+        Resource = aws_efs_file_system.dagster_dags.arn
+      }
+    ]
+  })
+}
+
+# Policy to allow Secrets Manager access for AWS credentials
+resource "aws_iam_role_policy" "ecs_task_fargate_secrets" {
+  name = "${local.name_prefix}-ecs-task-fargate-secrets"
+  role = aws_iam_role.ecs_task_fargate.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.dagster_aws_credentials.arn
+        ]
+      }
+    ]
+  })
+}
+
+# Policy to allow ECS task management for run launcher
+resource "aws_iam_role_policy" "ecs_task_fargate_ecs_run_launcher" {
+  name = "${local.name_prefix}-ecs-task-fargate-run-launcher"
+  role = aws_iam_role.ecs_task_fargate.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:RunTask",
+          "ecs:DescribeTasks",
+          "ecs:StopTask",
+          "ecs:DescribeTaskDefinition",
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
+          "ecs:ListTasks",
+          "ecs:DescribeContainerInstances",
+          "ecs:DescribeClusters",
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = [
+          aws_iam_role.ecs_task_execution_fargate.arn,
+          aws_iam_role.ecs_task_fargate.arn
+        ]
+      }
+    ]
+  })
+}
+
+# IAM Outputs
 output "aws_credentials_secret_arn" {
   description = "ARN of the AWS credentials secret"
   value       = aws_secretsmanager_secret.dagster_aws_credentials.arn

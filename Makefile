@@ -97,6 +97,15 @@ test: ## Run type checking, linting, and tests
 security-check: ## Run security assertions for AWS credentials
 	@./scripts/security-check.sh
 
+auth-generate: ## Generate htpasswd entry (usage: make auth-generate user=admin pass=secret)
+	@./scripts/manage-auth.sh generate "$(user)" "$(pass)"
+
+auth-deploy: ## Deploy new auth credentials (usage: make auth-deploy user=admin pass=secret)
+	@./scripts/manage-auth.sh deploy "$(user)" "$(pass)"
+
+auth-show: ## Show current authentication configuration
+	@./scripts/manage-auth.sh show-current
+
 ##@ Information
 
 url: ## Show Dagster web UI URL

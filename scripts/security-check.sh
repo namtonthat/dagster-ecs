@@ -58,9 +58,42 @@ fi
 
 echo "✅ PASS: Credentials can still be accessed when needed with -raw flag"
 
+echo "4. Checking DDoS protection configuration..."
+
+# Check that auto-scaling is limited to prevent DDoS attacks
+MAX_CAPACITY=$(grep -A 3 "max_capacity" ecs_fargate.tf | grep "max_capacity" | awk '{print $3}')
+if [ "$MAX_CAPACITY" -ne 2 ]; then
+    echo "❌ FAIL: Max capacity should be 2 for DDoS protection, found $MAX_CAPACITY"
+    exit 1
+fi
+
+echo "✅ PASS: DDoS protection verified - auto-scaling limited to 2 instances maximum"
+
+echo "5. Checking basic authentication configuration..."
+
+# Check that auth variables are properly defined
+if ! grep -q "dagster_auth_user" variables.tf; then
+    echo "❌ FAIL: dagster_auth_user variable not found in variables.tf"
+    exit 1
+fi
+
+if ! grep -q "dagster_auth_password" variables.tf; then
+    echo "❌ FAIL: dagster_auth_password variable not found in variables.tf"
+    exit 1
+fi
+
+if ! grep -A 5 'dagster_auth_password' variables.tf | grep -q 'sensitive.*=.*true'; then
+    echo "❌ FAIL: dagster_auth_password is not marked as sensitive"
+    exit 1
+fi
+
+echo "✅ PASS: Basic authentication variables properly configured"
+
 echo ""
 echo "🔒 All security assertions passed!"
 echo "✅ AWS credentials are properly protected from CI/CD exposure"
 echo "✅ Credentials are marked as sensitive in Terraform"
 echo "✅ Credentials show as <sensitive> in normal output"
 echo "✅ Credentials can still be accessed when explicitly needed"
+echo "✅ DDoS protection configured - scaling limited to 2 instances"
+echo "✅ Basic authentication properly configured with sensitive password"

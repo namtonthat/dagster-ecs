@@ -1,0 +1,144 @@
+# Dagster Instance Configuration for Local Development
+# This file configures the Dagster instance for local Docker Compose development
+
+# PostgreSQL storage configuration
+storage:
+  postgres:
+    postgres_db:
+      hostname:
+        env: DAGSTER_POSTGRES_HOST
+      username:
+        env: DAGSTER_POSTGRES_USER
+      password:
+        env: DAGSTER_POSTGRES_PASSWORD
+      db_name:
+        env: DAGSTER_POSTGRES_DB
+      port:
+        env: DAGSTER_POSTGRES_PORT
+
+# Local compute logs - for development we can use local storage
+compute_logs:
+  module: dagster.core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir: "/app/.dagster_home/compute_logs"
+
+# Run storage - stores run metadata and status
+run_storage:
+  module: dagster.core.storage.runs
+  class: SqlRunStorage
+
+# Event log storage - stores all events from runs
+event_log_storage:
+  module: dagster.core.storage.event_log
+  class: SqlEventLogStorage
+
+# Schedule storage - stores schedule metadata
+schedule_storage:
+  module: dagster.core.storage.schedules
+  class: SqlScheduleStorage
+
+# Local artifact storage for temporary files
+local_artifact_storage:
+  module: dagster.core.storage.root
+  class: LocalArtifactStorage
+  config:
+    base_dir: "/app/.dagster_home/storage"
+
+# Docker run launcher for local development - each run executes in a fresh Docker container
+run_launcher:
+  module: dagster_docker
+  class: DockerRunLauncher
+  config:
+    image:
+      env: DAGSTER_DOCKER_IMAGE
+    container_kwargs:
+      # Mount the same volumes as the webserver
+      volumes:
+        - "/app/dags:/app/dags:ro"
+        - "/app/.dagster_home:/app/.dagster_home"
+      environment:
+        - DAGSTER_POSTGRES_HOST
+        - DAGSTER_POSTGRES_USER
+        - DAGSTER_POSTGRES_PASSWORD
+        - DAGSTER_POSTGRES_DB
+        - DAGSTER_POSTGRES_PORT
+        - DAGSTER_S3_BUCKET
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY
+        - AWS_DEFAULT_REGION
+      # Remove container after run completes
+      auto_remove: true
+      # Use dagster network for database connectivity
+      network: "dagster-ecs_dagster_network"
+
+# Queued run coordinator for better control
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 2
+    tag_concurrency_limits:
+      - key: "dagster/backfill"
+        limit: 1
+
+# Daemon scheduler for schedules and sensors
+scheduler:
+  module: dagster.core.scheduler
+  class: DagsterDaemonScheduler
+
+# Run queue configuration
+run_queue:
+  max_concurrent_runs: 2
+
+# Telemetry (disable for local development)
+telemetry:
+  enabled: false
+
+# Run monitoring
+run_monitoring:
+  enabled: true
+  poll_interval_seconds: 30
+
+# Automatic retries for failed runs
+run_retries:
+  enabled: true
+  max_retries: 1
+  retry_on_asset_or_op_failure: true
+
+# Code server timeout for large codebases
+code_servers:
+  local_startup_timeout: 120
+
+# Data retention policies (shorter for local dev)
+retention:
+  schedule:
+    purge_after_days: 7
+  sensor:
+    purge_after_days:
+      skipped: 1
+      failure: 3
+      success: 7
+
+# Sensor configuration
+sensors:
+  use_threads: true
+  num_workers: 2
+
+# Schedule configuration  
+schedules:
+  use_threads: true
+  num_workers: 2
+
+# Backfill configuration
+backfills:
+  use_threads: true
+  num_workers: 1
+
+# Auto-materialization (disabled for local dev)
+auto_materialize:
+  enabled: false
+
+# Default operation concurrency
+concurrency:
+  default_op_concurrency_limit: 3

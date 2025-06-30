@@ -4,10 +4,6 @@ resource "aws_s3_bucket" "dagster" {
   tags = local.tags
 }
 
-output "s3_bucket_name" {
-  description = "S3 bucket name for Dagster storage"
-  value       = aws_s3_bucket.dagster.bucket
-}
 
 resource "aws_s3_bucket_versioning" "dagster" {
   bucket = aws_s3_bucket.dagster.id

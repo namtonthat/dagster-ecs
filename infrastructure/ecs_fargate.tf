@@ -59,8 +59,8 @@ resource "aws_security_group" "ecs_tasks_fargate" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port       = 3000
-    to_port         = 3000
+    from_port       = 80
+    to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
@@ -77,113 +77,7 @@ resource "aws_security_group" "ecs_tasks_fargate" {
   })
 }
 
-# IAM Role for ECS Task Execution
-resource "aws_iam_role" "ecs_task_execution_fargate" {
-  name = "${local.name_prefix}-ecs-task-execution-fargate"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = local.tags
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_fargate" {
-  role       = aws_iam_role.ecs_task_execution_fargate.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# Policy to allow Secrets Manager access for execution role (needed for secrets retrieval)
-resource "aws_iam_role_policy" "ecs_task_execution_fargate_secrets" {
-  name = "${local.name_prefix}-ecs-task-execution-fargate-secrets"
-  role = aws_iam_role.ecs_task_execution_fargate.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = [
-          aws_secretsmanager_secret.dagster_aws_credentials.arn
-        ]
-      }
-    ]
-  })
-}
-
-# IAM Role for ECS Task
-resource "aws_iam_role" "ecs_task_fargate" {
-  name = "${local.name_prefix}-ecs-task-fargate"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = local.tags
-}
-
-# Policy to allow EFS access
-resource "aws_iam_role_policy" "ecs_task_fargate_efs" {
-  name = "${local.name_prefix}-ecs-task-fargate-efs"
-  role = aws_iam_role.ecs_task_fargate.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite",
-          "elasticfilesystem:ClientRootAccess"
-        ]
-        Resource = aws_efs_file_system.dagster_dags.arn
-      }
-    ]
-  })
-}
-
-# Policy to allow Secrets Manager access for AWS credentials
-resource "aws_iam_role_policy" "ecs_task_fargate_secrets" {
-  name = "${local.name_prefix}-ecs-task-fargate-secrets"
-  role = aws_iam_role.ecs_task_fargate.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = [
-          aws_secretsmanager_secret.dagster_aws_credentials.arn
-        ]
-      }
-    ]
-  })
-}
+# IAM roles are now defined in iam.tf
 
 # ECS Task Definition
 resource "aws_ecs_task_definition" "dagster_fargate" {
@@ -218,7 +112,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
       
       portMappings = [
         {
-          containerPort = 3000
+          containerPort = 80
           protocol      = "tcp"
         }
       ]
@@ -259,6 +153,50 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
         {
           name  = "AWS_DEFAULT_REGION"
           value = var.aws_region
+        },
+        {
+          name  = "DAGSTER_AUTH_USER"
+          value = var.dagster_auth_user
+        },
+        {
+          name  = "DAGSTER_AUTH_PASSWORD"
+          value = var.dagster_auth_password
+        },
+        {
+          name  = "DAGSTER_DOCKER_IMAGE"
+          value = "${aws_ecr_repository.dagster.repository_url}:latest"
+        },
+        {
+          name  = "DAGSTER_ECS_CLUSTER"
+          value = aws_ecs_cluster.dagster_fargate.name
+        },
+        {
+          name  = "DAGSTER_ECS_SUBNETS"
+          value = join(",", aws_subnet.private[*].id)
+        },
+        {
+          name  = "DAGSTER_ECS_EXECUTION_ROLE_ARN"
+          value = aws_iam_role.ecs_task_execution_fargate.arn
+        },
+        {
+          name  = "DAGSTER_ECS_TASK_ROLE_ARN"
+          value = aws_iam_role.ecs_task_fargate.arn
+        },
+        {
+          name  = "DAGSTER_EFS_FILE_SYSTEM_ID"
+          value = aws_efs_file_system.dagster_dags.id
+        },
+        {
+          name  = "DAGSTER_ECS_LOG_GROUP"
+          value = aws_cloudwatch_log_group.dagster_fargate.name
+        },
+        {
+          name  = "DAGSTER_AWS_CREDENTIALS_SECRET_ARN_ACCESS_KEY"
+          value = "${aws_secretsmanager_secret.dagster_aws_credentials.arn}:AWS_ACCESS_KEY_ID::"
+        },
+        {
+          name  = "DAGSTER_AWS_CREDENTIALS_SECRET_ARN_SECRET_KEY"
+          value = "${aws_secretsmanager_secret.dagster_aws_credentials.arn}:AWS_SECRET_ACCESS_KEY::"
         }
       ]
 
@@ -289,6 +227,140 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
   tags = local.tags
 }
 
+# ECS Task Definition for Dagster Daemon
+resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
+  family                   = "${local.name_prefix}-daemon-fargate"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  
+  # Use ARM64 for cost optimization
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution_fargate.arn
+  task_role_arn           = aws_iam_role.ecs_task_fargate.arn
+
+  volume {
+    name = "dagster-dags"
+
+    efs_volume_configuration {
+      file_system_id = aws_efs_file_system.dagster_dags.id
+      root_directory = "/"
+      transit_encryption = "ENABLED"
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name  = "dagster-daemon"
+      image = "${aws_ecr_repository.dagster.repository_url}:latest"
+      
+      # Override the default command to run daemon
+      command = ["dagster-daemon", "run"]
+
+      mountPoints = [
+        {
+          sourceVolume  = "dagster-dags"
+          containerPath = "/app/dags"
+          readOnly      = false
+        }
+      ]
+
+      environment = [
+        {
+          name  = "DAGSTER_POSTGRES_USER"
+          value = var.db_username
+        },
+        {
+          name  = "DAGSTER_POSTGRES_DB"
+          value = "dagster"
+        },
+        {
+          name  = "DAGSTER_POSTGRES_HOST"
+          value = aws_db_instance.dagster.address
+        },
+        {
+          name  = "DAGSTER_POSTGRES_PORT"
+          value = "5432"
+        },
+        {
+          name  = "DAGSTER_POSTGRES_PASSWORD"
+          value = var.db_password
+        },
+        {
+          name  = "DAGSTER_S3_BUCKET"
+          value = aws_s3_bucket.dagster.bucket
+        },
+        {
+          name  = "AWS_DEFAULT_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "DAGSTER_DOCKER_IMAGE"
+          value = "${aws_ecr_repository.dagster.repository_url}:latest"
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "AWS_ACCESS_KEY_ID"
+          valueFrom = "${aws_secretsmanager_secret.dagster_aws_credentials.arn}:AWS_ACCESS_KEY_ID::"
+        },
+        {
+          name      = "AWS_SECRET_ACCESS_KEY"
+          valueFrom = "${aws_secretsmanager_secret.dagster_aws_credentials.arn}:AWS_SECRET_ACCESS_KEY::"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.dagster_daemon_fargate.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+
+      essential = true
+    }
+  ])
+
+  tags = local.tags
+}
+
+# ECS Service for Daemon
+resource "aws_ecs_service" "dagster_daemon_fargate" {
+  name            = "dagster-ecs-daemon-service"
+  cluster         = aws_ecs_cluster.dagster_fargate.id
+  task_definition = aws_ecs_task_definition.dagster_daemon_fargate.arn
+  desired_count   = 1
+
+  # Enable deployment configuration for rolling updates
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 0  # Daemon can be down briefly
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    security_groups  = [aws_security_group.ecs_tasks_fargate.id]
+    subnets         = aws_subnet.private[*].id
+    assign_public_ip = false
+  }
+
+  # Daemon doesn't need load balancer
+  tags = local.tags
+}
+
+# CloudWatch Log Group for Daemon
+resource "aws_cloudwatch_log_group" "dagster_daemon_fargate" {
+  name              = "/ecs/${local.name_prefix}-daemon-fargate"
+  retention_in_days = 7
+
+  tags = local.tags
+}
+
 # ECS Service
 resource "aws_ecs_service" "dagster_fargate" {
   name            = "dagster-ecs-fargate-service"
@@ -310,7 +382,7 @@ resource "aws_ecs_service" "dagster_fargate" {
   load_balancer {
     target_group_arn = aws_lb_target_group.dagster.arn
     container_name   = "dagster-webserver"
-    container_port   = 3000
+    container_port   = 80
   }
 
   depends_on = [aws_lb_listener.dagster]
@@ -367,18 +439,3 @@ resource "aws_cloudwatch_log_group" "dagster_fargate" {
   tags = local.tags
 }
 
-# Outputs
-output "efs_file_system_id" {
-  description = "EFS file system ID for DAGs"
-  value       = aws_efs_file_system.dagster_dags.id
-}
-
-output "ecs_cluster_name" {
-  description = "ECS Fargate cluster name"
-  value       = aws_ecs_cluster.dagster_fargate.name
-}
-
-output "ecs_service_name" {
-  description = "ECS Fargate service name"
-  value       = aws_ecs_service.dagster_fargate.name
-}

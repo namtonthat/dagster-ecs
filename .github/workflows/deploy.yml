@@ -40,6 +40,32 @@ jobs:
           uv run ruff format --check dags/
           uv run ty check dags/
 
+      - name: Run security assertions
+        run: |
+          # Run security checks using make command
+          make security-check
+
+      - name: Validate AWS credentials output format
+        run: |
+          # Test that aws-credentials command outputs exactly 2 lines
+          cd infrastructure
+          OUTPUT_LINES=$(tofu output -raw aws_access_key_id; echo; tofu output -raw aws_secret_access_key; echo | wc -l)
+          if [ "$OUTPUT_LINES" -ne 2 ]; then
+            echo "❌ FAIL: Expected 2 lines of AWS credentials output, got $OUTPUT_LINES"
+            exit 1
+          fi
+          echo "✅ PASS: AWS credentials output format validated"
+
+      - name: Verify DDoS protection configuration
+        run: |
+          # Assert max scaling is limited to 2 instances to prevent DDoS scaling
+          MAX_CAPACITY=$(grep -A 3 "max_capacity" infrastructure/ecs_fargate.tf | grep "max_capacity" | awk '{print $3}')
+          if [ "$MAX_CAPACITY" -ne 2 ]; then
+            echo "❌ FAIL: Max capacity should be 2 for DDoS protection, found $MAX_CAPACITY"
+            exit 1
+          fi
+          echo "✅ PASS: DDoS protection verified - max scaling limited to 2 instances"
+
   build-and-deploy:
     needs: test
     runs-on: ubuntu-latest
@@ -84,3 +110,31 @@ jobs:
           aws ecs wait services-stable \
             --cluster $ECS_CLUSTER \
             --services $ECS_SERVICE
+
+      - name: Update README with live Dagster URL
+        run: |
+          # Install OpenTofu for URL retrieval
+          curl -fsSL https://get.opentofu.org/install-opentofu.sh | sh
+          sudo mv tofu /usr/local/bin/
+          
+          # Initialize and get current Dagster URL
+          cd infrastructure
+          tofu init
+          DAGSTER_URL=$(tofu output -raw load_balancer_url)
+          cd ..
+          
+          # Update README.md with current URL (both localhost and production references)
+          sed -i "s|Open <http://localhost:3000>|Open <$DAGSTER_URL>|g" README.md
+          sed -i "s|http://localhost:3000|$DAGSTER_URL|g" README.md
+          
+          # Commit changes if URL changed
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add README.md
+          if git diff --staged --quiet; then
+            echo "No changes to README.md"
+          else
+            git commit -m "docs: update live Dagster URL to $DAGSTER_URL [skip ci]"
+            git push
+            echo "✅ README.md updated with live URL: $DAGSTER_URL"
+          fi
