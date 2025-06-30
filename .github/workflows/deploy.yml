@@ -55,7 +55,6 @@ jobs:
           uv run ruff format --check dags/
           uv run ty check dags/
 
-
       - name: Validate AWS credentials output format
         run: |
           # Test that aws-credentials command outputs exactly 2 lines

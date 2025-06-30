@@ -17,6 +17,11 @@ resource "aws_iam_user_policy_attachment" "dagster_ecr_full_access" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
 }
 
+resource "aws_iam_user_policy_attachment" "dagster_ecr_power_user" {
+  user       = aws_iam_user.dagster_s3_user.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
+}
+
 resource "aws_iam_user_policy_attachment" "dagster_ecs_full_access" {
   user       = aws_iam_user.dagster_s3_user.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
