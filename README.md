@@ -103,6 +103,9 @@ flowchart TD
    # Edit existing DAG files
    vim dags/main/assets.py
    vim dags/main/jobs.py
+   
+   # Or create new DAG from template
+   make create dag=my_new_pipeline
    ```
 
 2. **Test locally**:
@@ -261,9 +264,9 @@ After infrastructure deployment:
 
 ```bash
 # Quick access via Makefile (recommended)
-make aws-credentials   # Show AWS credentials for S3 access
+make aws-credentials   # Show AWS credentials (access key + secret key, one per line)
 make url              # Show Dagster web UI URL
-make help             # Show all available commands
+make help             # Show all available commands (auto-generated)
 
 # Direct terraform access
 cd infrastructure

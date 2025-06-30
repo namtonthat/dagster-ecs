@@ -6,9 +6,9 @@ set -e
 
 DAG_NAME="$1"
 
-# Check if name parameter is provided
+# Check if dag parameter is provided
 if [ -z "$DAG_NAME" ]; then
-    echo "Error: name parameter required. Usage: ./scripts/create-dag.sh <dag-name>"
+    echo "Error: dag parameter required. Usage: make create dag=<dag-name>"
     exit 1
 fi
 

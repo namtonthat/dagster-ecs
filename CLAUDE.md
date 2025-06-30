@@ -81,8 +81,9 @@ make dev-reset     # Reset local database and restart
 
 ### DAG Development
 ```bash
-make create name=my_pipeline   # Create new DAG from template (calls scripts/create-dag.sh)
+make create dag=my_pipeline    # Create new DAG from template (calls scripts/create-dag.sh)
 make test                      # Run type checking, linting, and tests (calls scripts/test.sh)
+make security-check           # Run security assertions for AWS credentials (calls scripts/security-check.sh)
 ```
 
 ### Repository Management (External DAGs)
@@ -162,9 +163,14 @@ Key differences:
 │   └── ...               # Other infrastructure components
 ├── docker/
 │   └── Dockerfile        # Single optimized container
+├── scripts/              # Automation scripts
+│   ├── create-dag.sh     # DAG creation script
+│   ├── deploy-dags.sh    # DAG deployment script
+│   ├── test.sh           # Testing script
+│   └── security-check.sh # Security assertions script
 ├── docker-compose.yml    # Local development environment
 ├── workspace.yaml        # Dagster workspace configuration
-├── Makefile             # Command abstractions
+├── Makefile             # Command abstractions (calls scripts)
 ├── .github/workflows/   # CI/CD pipeline
 ├── pyproject.toml       # Python dependencies
 ├── DEPLOYMENT_ARCHITECTURE.md # Detailed architecture docs

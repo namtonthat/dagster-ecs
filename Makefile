@@ -88,11 +88,14 @@ infra-destroy: ## Destroy infrastructure
 
 ##@ DAG Development
 
-create: ## Create new DAG from template (usage: make create name=my_pipeline)
-	@./scripts/create-dag.sh "$(name)"
+create: ## Create new DAG from template (usage: make create dag=my_pipeline)
+	@./scripts/create-dag.sh "$(dag)"
 
 test: ## Run type checking, linting, and tests
 	@./scripts/test.sh
+
+security-check: ## Run security assertions for AWS credentials
+	@./scripts/security-check.sh
 
 ##@ Information
 
