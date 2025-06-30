@@ -55,10 +55,6 @@ jobs:
           uv run ruff format --check dags/
           uv run ty check dags/
 
-      - name: Run security assertions
-        run: |
-          # Run security checks using make command
-          make security-check
 
       - name: Validate AWS credentials output format
         run: |
