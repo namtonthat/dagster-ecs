@@ -1,10 +1,20 @@
-# Dagster ECS Dynamic DAG Loading Architecture
+# Dagster ECS Dynamic DAG Loading Architecture - DEPLOYED
 
 ## Overview
 
-This system provides a **dynamic DAG loading architecture** where DAG files are stored in S3 and automatically synced to ECS containers every 60 seconds. This eliminates the need to rebuild Docker images when DAG code changes, providing faster deployments and better separation of concerns.
+This document describes the **currently deployed** Dagster ECS Fargate architecture in AWS ap-southeast-2. The system provides a **dynamic DAG loading architecture** where DAG files are stored in S3 and automatically synced to ECS containers every 60 seconds. This eliminates the need to rebuild Docker images when DAG code changes, providing faster deployments and better separation of concerns.
 
-The architecture is designed for **cost optimization** and **high scalability**, leveraging AWS Free Tier resources while maintaining production-grade capabilities with secure credential management.
+The architecture is **successfully deployed and operational** with cost optimization and high scalability features, leveraging AWS Free Tier resources while maintaining production-grade capabilities.
+
+## 🚀 Current Deployment Status
+
+**✅ OPERATIONAL**: All services running and healthy
+- **Web UI**: http://dagster-ecs-alb-1680764756.ap-southeast-2.elb.amazonaws.com
+- **Authentication**: Basic auth enabled (admin user)
+- **Services**: 2 ECS services running (webserver + daemon)
+- **Database**: PostgreSQL RDS available
+- **Auto Scaling**: Active (1-2 instances)
+- **DAG Sync**: S3 to EFS sync operational
 
 ## Cost-Optimized Infrastructure
 
@@ -102,6 +112,94 @@ s3://your-bucket-name/
         ├── assets.py     # Asset definitions
         ├── jobs.py       # Job definitions
         └── resources.py  # Resource configurations
+```
+
+## 🏗️ Deployed Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Internet"
+        Users[Users/Developers]
+    end
+    
+    subgraph "AWS ap-southeast-2 (vpc-03a6c5433c1e0bb48)"
+        subgraph "Public Subnet A (10.0.1.0/24)"
+            ALB[Application Load Balancer<br/>dagster-ecs-alb-1680764756<br/>Port 80 HTTP]
+            ECS_WEB[ECS Fargate Task<br/>Dagster Webserver<br/>ARM64 - 0.25vCPU/512MB<br/>10.0.1.101:80]
+        end
+        
+        subgraph "Public Subnet B (10.0.2.0/24)"
+            ECS_DAEMON[ECS Fargate Task<br/>Dagster Daemon<br/>ARM64 - 0.25vCPU/512MB]
+            RDS[(PostgreSQL RDS<br/>db.t3.micro<br/>dagster-ecs-db)]
+        end
+        
+        subgraph "Storage & Services"
+            S3[S3 Bucket<br/>ntonthat-dagster-ecs<br/>DAG Files: /dags/]
+            EFS[EFS File System<br/>fs-036fd6909b5febdc7<br/>Cross-AZ Sync]
+            ECR[ECR Repository<br/>ARM64 Images<br/>110386608476.dkr.ecr]
+        end
+        
+        subgraph "Security"
+            SM[Secrets Manager<br/>DB Credentials]
+            IAM[IAM Roles<br/>S3 + ECS Access]
+        end
+    end
+    
+    subgraph "Monitoring"
+        CW[CloudWatch Logs<br/>/ecs/dagster-ecs-fargate]
+    end
+    
+    Users --> ALB
+    ALB --> ECS_WEB
+    ECS_WEB --> RDS
+    ECS_WEB --> S3
+    ECS_WEB --> EFS
+    ECS_DAEMON --> RDS
+    ECS_DAEMON --> S3
+    ECS_DAEMON --> EFS
+    
+    ECS_WEB --> SM
+    ECS_DAEMON --> SM
+    ECS_WEB --> ECR
+    ECS_DAEMON --> ECR
+    ECS_WEB --> CW
+    ECS_DAEMON --> CW
+    
+    style ALB fill:#e1f5fe
+    style ECS_WEB fill:#e8f5e8
+    style ECS_DAEMON fill:#e8f5e8
+    style RDS fill:#fff3e0
+    style S3 fill:#f3e5f5
+    style Users fill:#ffebee
+```
+
+## 🔄 Dynamic DAG Loading Flow
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant S3 as S3 Bucket
+    participant ECS as ECS Container
+    participant Dagster as Dagster UI
+    
+    Note over Dev,Dagster: Current Operational Flow
+    
+    Dev->>S3: 1. Upload DAG files<br/>make deploy-dags
+    S3->>S3: 2. Files stored in /dags/
+    
+    loop Every 60 seconds
+        ECS->>S3: 3. aws s3 sync (timeout 30s)
+        S3->>ECS: 4. Download new/changed files
+        ECS->>ECS: 5. Update local /app/dags/
+    end
+    
+    Note over ECS: No container restart needed!
+    
+    ECS->>Dagster: 6. Dagster auto-detects changes
+    Dagster->>Dagster: 7. Reload DAG definitions
+    
+    Dev->>Dagster: 8. View updated DAGs
+    Note over Dagster: Changes visible within 60s
 ```
 
 ## Implementation Components

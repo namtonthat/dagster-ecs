@@ -57,7 +57,7 @@ sync_dags() {
     # Sync DAGs from S3 to local filesystem (from dags/ prefix in S3)
     echo "Running S3 sync command..."
     # The --delete flag removes files that are no longer in S3
-    aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps --debug
+    timeout 30 aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps
     SYNC_EXIT_CODE=$?
     
     if [ $SYNC_EXIT_CODE -eq 0 ]; then
@@ -81,8 +81,8 @@ periodic_sync() {
     
     while true; do
         echo "Performing periodic DAG sync..."
-        sync_dags || echo "Periodic sync failed, will retry in 60 seconds"
-        sleep 60  # Sync every minute
+        timeout 30 aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps --quiet || echo "Periodic sync failed, will retry in 10 minutes"
+        sleep 600  # Sync every 10 minutes
     done
 }
 

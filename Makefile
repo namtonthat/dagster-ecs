@@ -1,4 +1,4 @@
-.PHONY: help install dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test url
+.PHONY: help install start stop logs reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test aws-url aws-account-id aws-creds
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
@@ -13,16 +13,18 @@ help: ## Show this help message
 		END { print "" }' $(MAKEFILE_LIST)
 
 ##@ Local Development
+build-local: ## Build Docker image for local development
+	@echo "Building Docker image for local development..."
+	docker build --target local -f docker/Dockerfile -t dagster-ecs:local .
 
 install: ## Install Python dependencies with uv
 	@echo "Installing Python dependencies..."
 	uv sync
 
-build-local: ## Build Docker image for local development
-	@echo "Building Docker image for local development..."
-	docker build --target local -f docker/Dockerfile -t dagster-ecs:local .
+logs: ## View local logs
+	docker-compose logs -f
 
-dev: ## Start local Dagster stack with Docker Compose
+start: ## Start local Dagster stack with Docker Compose
 	@echo "Starting local Dagster stack..."
 	docker-compose up -d
 	@echo "Dagster webserver available at http://localhost:3000"
@@ -31,10 +33,7 @@ stop: ## Stop local environment
 	@echo "Stopping local environment..."
 	docker-compose down
 
-dev-logs: ## View local logs
-	docker-compose logs -f
-
-dev-reset: ## Reset local database and restart
+reset: ## Reset local database and restart
 	@echo "Resetting local environment..."
 	docker-compose down -v
 	docker-compose up -d
@@ -56,7 +55,7 @@ deploy: ## Deploy latest images to ECS Fargate
 	@echo "Note: This requires ECS cluster to be created via infrastructure"
 	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
 
-logs: ## View ECS Fargate logs
+ecs-logs: ## View ECS Fargate logs
 	@echo "Viewing ECS Fargate logs..."
 	aws logs tail /ecs/dagster-ecs-fargate --follow
 
@@ -95,16 +94,16 @@ auth-deploy: ## Deploy new auth credentials (usage: make auth-deploy user=admin 
 auth-show: ## Show current authentication configuration
 	@./scripts/manage-auth.sh show-current
 
-##@ Information
+##@ AWS Related Information
 
-url: ## Show Dagster web UI URL
+aws-url: ## Show Dagster web UI URL
 	@echo "Fetching Dagster web UI URL..."
 	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url
 
 aws-account-id: ## Show AWS Account ID
 	@aws sts get-caller-identity --query Account --output text
 
-aws-credentials: ## Show AWS credentials for S3 access
+aws-creds: ## Show AWS credentials for S3 access
 	@tofu -chdir=$(INFRA_DIR) output -raw aws_access_key_id; echo
 	@tofu -chdir=$(INFRA_DIR) output -raw aws_secret_access_key; echo
 

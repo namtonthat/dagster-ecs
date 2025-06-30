@@ -9,7 +9,24 @@
 
 Modern data orchestration platform deployed on AWS ECS Fargate with **dynamic DAG loading** for rapid deployment and scalable, serverless data pipeline management.
 
-## 🏗️ Architecture
+## 🚀 Current Deployment Status
+
+**✅ OPERATIONAL**: Fully deployed and running in AWS ap-southeast-2
+- **Web UI**: http://dagster-ecs-alb-1680764756.ap-southeast-2.elb.amazonaws.com
+- **Authentication**: Basic auth enabled (admin user)
+- **Services**: 2 ECS Fargate services (webserver + daemon)
+- **Auto Scaling**: 1-2 instances based on CPU/Memory
+- **Architecture**: ARM64 containers for cost optimization
+
+## 📚 Architecture Documentation
+
+Detailed architecture diagrams and documentation:
+
+- **[📋 Current Architecture](./CURRENT_ARCHITECTURE.md)** - Complete overview of deployed infrastructure
+- **[🌐 Network Architecture](./NETWORK_ARCHITECTURE.md)** - Detailed networking and security groups
+- **[🏗️ Deployment Architecture](./DEPLOYMENT_ARCHITECTURE.md)** - Dynamic DAG loading implementation
+
+## 🏗️ Infrastructure Components
 
 ### ☁️ Infrastructure Components
 
