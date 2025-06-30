@@ -47,7 +47,7 @@ s3://your-bucket/
 ## 🔄 Development Workflow (Dynamic Loading)
 
 ```mermaid
-flowchart TD
+flowchart LR
     A[Start Development] --> B[make install]
     B --> C[make dev]
     C --> D[Edit DAG Logic]
@@ -115,7 +115,7 @@ flowchart TD
    ```
 
 3. **Verify in Local Dagster UI**:
-   - Check that your changes appear at http://localhost:3000
+   - Check that your changes appear at <http://localhost:3000>
    - Test asset materialisation locally
 
 4. **Deploy DAGs (Fast Path - 60 seconds)**:
@@ -149,6 +149,7 @@ make create name=my_pipeline
 ```
 
 This automatically:
+
 - Copies the template DAG
 - Replaces all template references with your DAG name
 - Creates `dags/main/my_pipeline_dag.py`
@@ -160,7 +161,7 @@ After creating a new DAG:
 1. **Implement your logic** in the generated file
 2. **Update asset functions** with your data processing
 3. **Test locally** with `make test`
-4. **Verify in Dagster UI** at http://localhost:3000
+4. **Verify in Dagster UI** at <http://localhost:3000>
 
 ### 🗄️ S3 Integration
 
@@ -248,14 +249,17 @@ Set in `docker-compose.yml`:
 ### ☁️ Production (ECS)
 
 **Required Variables** (container fails if missing):
+
 - `DAGSTER_S3_BUCKET`: S3 bucket name for DAG storage
 - `DAGSTER_POSTGRES_*`: RDS connection details
 
 **AWS Secrets Manager** (automatically injected):
+
 - `AWS_ACCESS_KEY_ID`: S3 access key (from Secrets Manager)
 - `AWS_SECRET_ACCESS_KEY`: S3 secret key (from Secrets Manager)
 
 **Optional Variables**:
+
 - `AWS_DEFAULT_REGION`: AWS region (default: ap-southeast-2)
 
 ### 🔑 Terraform Outputs
@@ -276,7 +280,6 @@ tofu output load_balancer_url     # Dagster UI URL
 tofu output s3_bucket_name        # S3 bucket for DAGs
 ```
 
-
 ## 💬 Support
 
 For issues or questions:
@@ -284,4 +287,3 @@ For issues or questions:
 - Check the Dagster documentation: <https://docs.dagster.io/>
 - Review logs: `docker-compose logs dagster`
 - Monitor ECS service in AWS Console
-
