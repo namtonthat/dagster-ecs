@@ -40,7 +40,22 @@
       "Bash(aws s3api delete-bucket:*)",
       "Bash(aws s3api list-object-versions:*)",
       "Bash(aws s3api delete-object:*)",
-      "Bash(aws ecs describe-clusters:*)"
+      "Bash(aws ecs describe-clusters:*)",
+      "Bash(aws ecs describe-services:*)",
+      "Bash(aws ecs list-tasks:*)",
+      "Bash(aws ecs list-clusters:*)",
+      "Bash(aws logs tail:*)",
+      "Bash(grep:*)",
+      "Bash(docker build:*)",
+      "Bash(docker:*)",
+      "Bash(./scripts/deploy-dags.sh:*)",
+      "Bash(aws ecs update-service:*)",
+      "Bash(aws logs describe-log-streams:*)",
+      "Bash(aws logs:*)",
+      "Bash(aws ecs describe-task-definition:*)",
+      "Bash(aws ecs describe-tasks:*)",
+      "Bash(aws secretsmanager describe-secret:*)",
+      "WebFetch(domain:dagster-ecs-alb-1924936045.ap-southeast-2.elb.amazonaws.com)"
     ],
     "deny": []
   }

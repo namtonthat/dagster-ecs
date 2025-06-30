@@ -6,53 +6,67 @@
 [![Dagster](https://img.shields.io/badge/Dagster-1.8+-orange.svg)](https://dagster.io/)
 [![AWS ECS](https://img.shields.io/badge/AWS-ECS%20Fargate-orange.svg)](https://aws.amazon.com/ecs/)
 
-Modern data orchestration platform deployed on AWS ECS Fargate with EFS storage for scalable, serverless data pipeline management.
+Modern data orchestration platform deployed on AWS ECS Fargate with **dynamic DAG loading** for rapid deployment and scalable, serverless data pipeline management.
 
 ## 🏗️ Architecture
 
 ### ☁️ Infrastructure Components
 
 - **ECS Fargate**: Serverless container orchestration for auto-scaling Dagster services
-- **EFS**: Elastic File System for persistent DAG storage across containers
+- **S3 Dynamic Loading**: DAG files stored in S3 and synced to containers every 60 seconds
+- **AWS Secrets Manager**: Secure credential storage for S3 access
 - **PostgreSQL**: Metadata storage for Dagster state and run history
-- **ECR**: Container registry for Dagster application images
-- **S3**: Object storage with prefix-based isolation per repository
+- **ECR**: Container registry for Dagster runtime images (no DAG files)
+- **IAM**: Least-privilege security model with dedicated roles
 
-### 📁 DAG Organisation
+### 📁 DAG Organisation (Dynamic S3 Loading)
 
 ```
+# Local development structure
 dags/
-├── main/           # Main repository DAGs and resources
-│   └── resources.py       # S3 prefix isolation resources
-├── external_repos/        # External repository DAGs (managed via make commands)
-├── tests/                 # DAG tests
-└── your_dag.py            # Your custom DAGs (created via make create)
-templates/
-└── dag.py                 # Template for creating new DAGs
+├── __init__.py           # Root DAG definitions
+└── main/                 # Main DAG package
+    ├── __init__.py       # Package definitions  
+    ├── assets.py         # Asset definitions
+    ├── jobs.py           # Job definitions
+    └── resources.py      # S3 prefix isolation resources
+
+# S3 storage structure (automatically synced)
+s3://your-bucket/
+└── dags/                 # Synced to containers every 60s
+    ├── __init__.py
+    └── main/
+        ├── __init__.py
+        ├── assets.py
+        ├── jobs.py
+        └── resources.py
 ```
 
-Each repository gets isolated S3 prefixes: `repos/{repo-name}/`
+⚡ **Fast Deployment**: DAG changes deploy via S3 upload (seconds) vs Docker rebuild (minutes)
 
-## 🔄 Development Workflow
+## 🔄 Development Workflow (Dynamic Loading)
 
 ```mermaid
 flowchart TD
     A[Start Development] --> B[make install]
     B --> C[make dev]
-    C --> D[make create name=my_pipeline]
-    D --> E[Edit DAG Logic]
-    E --> F[make test]
-    F --> G{Tests Pass?}
-    G -->|No| E
-    G -->|Yes| H[Verify in Dagster UI]
-    H --> I[Git Commit & Push]
-    I --> J[CI/CD Pipeline]
-    J --> K[Deploy to ECS]
+    C --> D[Edit DAG Logic]
+    D --> E[make test]
+    E --> F{Tests Pass?}
+    F -->|No| D
+    F -->|Yes| G[Verify in Local UI]
+    G --> H[make deploy-dags]
+    H --> I[⚡ Auto-sync in 60s]
+    I --> J[Verify in Production UI]
+    J --> K[Git Commit & Push]
     
     style A fill:#e1f5fe
-    style K fill:#c8e6c9
-    style G fill:#fff3e0
+    style I fill:#c8e6c9
+    style H fill:#ffeb3b
+    style F fill:#fff3e0
 ```
+
+⚡ **10x Faster**: DAG changes deploy in ~60 seconds (no Docker rebuilds!)
 
 ## 🚀 Quick Start
 
@@ -81,13 +95,14 @@ flowchart TD
 3. **Access Dagster UI**:
    Open <http://localhost:3000>
 
-### 🔄 Development Workflow
+### 🔄 Development Workflow (New Dynamic Approach)
 
-1. **Create new DAG**:
+1. **Edit DAG files directly**:
 
    ```bash
-   make create name=my_new_dag
-   # Edit the generated DAG with your logic
+   # Edit existing DAG files
+   vim dags/main/assets.py
+   vim dags/main/jobs.py
    ```
 
 2. **Test locally**:
@@ -96,20 +111,29 @@ flowchart TD
    make test  # Runs type checking, linting, and tests
    ```
 
-3. **Verify in Dagster UI**:
-   - Check that your DAG appears in the UI
-   - Test asset materialisation
-   - Verify S3 prefix isolation
+3. **Verify in Local Dagster UI**:
+   - Check that your changes appear at http://localhost:3000
+   - Test asset materialisation locally
 
-4. **Deploy**:
+4. **Deploy DAGs (Fast Path - 60 seconds)**:
+
+   ```bash
+   make deploy-dags  # Upload to S3, auto-sync in 60s
+   ```
+
+5. **For Runtime Changes (Full Path - 5-10 minutes)**:
+
+   ```bash
+   make build && make push && make deploy  # Docker rebuild + ECS restart
+   ```
+
+6. **Commit when ready**:
 
    ```bash
    git add .
-   git commit -m "Add new DAG: my_new_dag"
+   git commit -m "Update DAG logic"
    git push origin main
    ```
-
-   The CI/CD pipeline will automatically deploy to AWS ECS.
 
 ## ✍️ Writing DAGs
 
@@ -168,28 +192,45 @@ make dev
 
 ## 🚢 Deployment
 
-### 🔄 CI/CD Pipeline
-
-The GitHub Actions workflow automatically:
-
-1. Runs linting and type checking
-2. Builds Docker image
-3. Pushes to ECR
-4. Deploys to ECS Fargate
-
-### 🛠️ Manual Deployment
+### ⚡ Fast DAG Deployment (Recommended)
 
 ```bash
-# Build and push image
-docker build -f docker/Dockerfile -t dagster-app .
-docker tag dagster-app:latest <ecr-repo-url>:latest
-docker push <ecr-repo-url>:latest
+# Deploy DAG changes only (60 second deployment)
+make deploy-dags
 
-# Update ECS service
-aws ecs update-service \
-  --cluster dagster-ecs-fargate-cluster \
-  --service dagster-ecs-service-fargate \
-  --force-new-deployment
+# Deploy DAGs + restart containers  
+make deploy-all
+```
+
+### 🔄 Infrastructure Deployment
+
+```bash
+# Deploy infrastructure changes
+make infra-apply
+
+# Build and deploy runtime changes
+make build
+make push  
+make deploy
+```
+
+### 🛠️ Manual Deployment Commands
+
+```bash
+# DAG deployment
+./scripts/deploy-dags.sh
+
+# Infrastructure management
+cd infrastructure
+tofu plan
+tofu apply
+
+# Container deployment  
+docker build -f docker/Dockerfile -t dagster-ecs .
+aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.ap-southeast-2.amazonaws.com
+docker tag dagster-ecs:latest <account>.dkr.ecr.ap-southeast-2.amazonaws.com/dagster-ecs:latest
+docker push <account>.dkr.ecr.ap-southeast-2.amazonaws.com/dagster-ecs:latest
+aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
 ```
 
 ## 🌍 Environment Variables
@@ -203,11 +244,34 @@ Set in `docker-compose.yml`:
 
 ### ☁️ Production (ECS)
 
-Set in task definition:
-
+**Required Variables** (container fails if missing):
+- `DAGSTER_S3_BUCKET`: S3 bucket name for DAG storage
 - `DAGSTER_POSTGRES_*`: RDS connection details
-- `AWS_DEFAULT_REGION`: ap-southeast-2
-- `S3_BUCKET`: Dagster storage bucket
+
+**AWS Secrets Manager** (automatically injected):
+- `AWS_ACCESS_KEY_ID`: S3 access key (from Secrets Manager)
+- `AWS_SECRET_ACCESS_KEY`: S3 secret key (from Secrets Manager)
+
+**Optional Variables**:
+- `AWS_DEFAULT_REGION`: AWS region (default: ap-southeast-2)
+
+### 🔑 Terraform Outputs
+
+After infrastructure deployment:
+
+```bash
+# Quick access via Makefile (recommended)
+make aws-credentials   # Show AWS credentials for S3 access
+make url              # Show Dagster web UI URL
+make help             # Show all available commands
+
+# Direct terraform access
+cd infrastructure
+tofu output aws_access_key_id     # S3 access key (sensitive)
+tofu output aws_secret_access_key # S3 secret key (sensitive)
+tofu output load_balancer_url     # Dagster UI URL
+tofu output s3_bucket_name        # S3 bucket for DAGs
+```
 
 
 ## 💬 Support

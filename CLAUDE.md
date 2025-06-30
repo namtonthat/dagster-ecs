@@ -22,15 +22,17 @@ This repository contains a Dagster deployment configuration for AWS ECS. The pro
 
 ## Architecture Goals
 
-Implement a minimal but production-ready Dagster deployment:
+Implement a minimal but production-ready Dagster deployment with dynamic DAG loading:
 - **Local Development**: Full Dagster stack running locally with Docker Compose
 - **Cloud Deployment**: Streamlined ECS deployment with minimal AWS resources
+- **Dynamic DAG Loading**: DAG files stored in S3 and synced dynamically to containers
 - **Cost-Optimized**: Designed for AWS Free Tier with automatic scaling
 - **Essential Components Only**:
-  - Dagster webserver (UI/API)
+  - Dagster webserver (UI/API) with S3-synced DAGs
   - Dagster daemon (orchestration)
   - PostgreSQL (RDS for cloud, local container for dev)
-  - S3 bucket for assets/logs
+  - S3 bucket for DAG files, assets, and logs
+  - AWS Secrets Manager for secure credential management
   - Basic networking (VPC, subnets, security groups)
 
 ## Cost Structure & Scalability
@@ -79,8 +81,8 @@ make dev-reset     # Reset local database and restart
 
 ### DAG Development
 ```bash
-make create name=my_pipeline   # Create new DAG from template
-make test                      # Run type checking, linting, and tests
+make create name=my_pipeline   # Create new DAG from template (calls scripts/create-dag.sh)
+make test                      # Run type checking, linting, and tests (calls scripts/test.sh)
 ```
 
 ### Repository Management (External DAGs)
@@ -104,22 +106,32 @@ make infra-apply   # Apply infrastructure changes
 make infra-destroy # Destroy infrastructure
 
 # Application deployment
-make build         # Build and tag Docker images
+make build         # Build and tag Docker images (runtime only)
 make push          # Push images to ECR
-make deploy        # Deploy latest images to ECS
+make deploy-dags   # Deploy DAG files to S3 (no Docker rebuild needed)
+make deploy        # Deploy latest container images to ECS
+make deploy-all    # Deploy DAGs to S3 AND restart ECS service
 make logs          # View ECS service logs
+
+# Information & credentials
+make url           # Show Dagster web UI URL
+make aws-credentials # Show AWS credentials (access key + secret key, one per line)
+make help          # Show all available commands (auto-generated)
 ```
 
 ### CI/CD Integration
 - **Trigger**: Push/merge to main branch
-- **Process**: Build → Test → Push to ECR → Deploy to ECS
+- **Process**: 
+  - DAG Changes: Upload to S3 → Auto-sync to containers (no rebuild)
+  - Runtime Changes: Build → Test → Push to ECR → Deploy to ECS
 - **Tools**: GitHub Actions or similar pipeline
 
-### S3 Prefix Isolation
-Each external repository gets isolated S3 storage:
-- **Pattern**: `s3://bucket/repos/{repo-name}/assets/`
-- **Auto-configuration**: Repositories automatically get their prefix
-- **Cross-repo access**: Controlled via IAM policies
+### S3 Dynamic DAG Loading
+DAG files are stored in S3 and automatically synced to containers:
+- **Structure**: `s3://bucket/dags/main/` for main DAGs
+- **Sync Frequency**: Every 60 seconds automatically
+- **No Rebuilds**: DAG changes don't require Docker image rebuilds
+- **Isolated Storage**: Each repository gets dedicated S3 prefixes
 
 ## Reference Implementation
 
@@ -161,8 +173,20 @@ Key differences:
 
 ## Key Implementation Notes
 
+### Security & Credentials
+- **AWS Secrets Manager**: Secure credential storage for S3 access
+- **IAM User**: Dedicated user with minimal S3 permissions
+- **Terraform Outputs**: 
+  - `aws_access_key_id` (sensitive)
+  - `aws_secret_access_key` (sensitive)
+  - `aws_credentials_secret_arn`
+
+### Architecture Features
+- **Dynamic DAG Loading**: DAG files synced from S3 every 60 seconds
+- **No Hardcoded Values**: All bucket names and credentials are configurable
+- **Required Environment Variables**: `DAGSTER_S3_BUCKET` must be set (container fails if missing)
+- **S3 Subfolder Structure**: DAGs stored in `s3://bucket/dags/` subfolder
 - **External Repository Integration**: Add any Git repository as a Dagster code location
-- **S3 Prefix Isolation**: Each repository gets isolated S3 storage with automatic prefixes
 - **Service Discovery**: ECS services use AWS Cloud Map for internal communication
 - **Local-First Development**: Full local development with Docker Compose
 - **Repository Management**: Python-based automation for cloning, building, and deploying repositories

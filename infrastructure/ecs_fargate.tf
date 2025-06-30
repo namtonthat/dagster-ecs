@@ -102,6 +102,27 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_fargate" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Policy to allow Secrets Manager access for execution role (needed for secrets retrieval)
+resource "aws_iam_role_policy" "ecs_task_execution_fargate_secrets" {
+  name = "${local.name_prefix}-ecs-task-execution-fargate-secrets"
+  role = aws_iam_role.ecs_task_execution_fargate.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.dagster_aws_credentials.arn
+        ]
+      }
+    ]
+  })
+}
+
 # IAM Role for ECS Task
 resource "aws_iam_role" "ecs_task_fargate" {
   name = "${local.name_prefix}-ecs-task-fargate"
@@ -138,6 +159,27 @@ resource "aws_iam_role_policy" "ecs_task_fargate_efs" {
           "elasticfilesystem:ClientRootAccess"
         ]
         Resource = aws_efs_file_system.dagster_dags.arn
+      }
+    ]
+  })
+}
+
+# Policy to allow Secrets Manager access for AWS credentials
+resource "aws_iam_role_policy" "ecs_task_fargate_secrets" {
+  name = "${local.name_prefix}-ecs-task-fargate-secrets"
+  role = aws_iam_role.ecs_task_fargate.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.dagster_aws_credentials.arn
+        ]
       }
     ]
   })
@@ -213,6 +255,21 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
         {
           name  = "DAGSTER_S3_BUCKET"
           value = aws_s3_bucket.dagster.bucket
+        },
+        {
+          name  = "AWS_DEFAULT_REGION"
+          value = var.aws_region
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "AWS_ACCESS_KEY_ID"
+          valueFrom = "${aws_secretsmanager_secret.dagster_aws_credentials.arn}:AWS_ACCESS_KEY_ID::"
+        },
+        {
+          name      = "AWS_SECRET_ACCESS_KEY"
+          valueFrom = "${aws_secretsmanager_secret.dagster_aws_credentials.arn}:AWS_SECRET_ACCESS_KEY::"
         }
       ]
 

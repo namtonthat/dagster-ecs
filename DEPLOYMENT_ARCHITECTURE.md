@@ -1,10 +1,10 @@
-# Dagster ECS External Repository Deployment Architecture
+# Dagster ECS Dynamic DAG Loading Architecture
 
 ## Overview
 
-This system enables dynamic deployment of external Dagster repositories into the ECS-based Dagster deployment. Each external repository becomes a separate code location with isolated S3 storage.
+This system provides a **dynamic DAG loading architecture** where DAG files are stored in S3 and automatically synced to ECS containers every 60 seconds. This eliminates the need to rebuild Docker images when DAG code changes, providing faster deployments and better separation of concerns.
 
-The architecture is designed for **cost optimization** and **high scalability**, leveraging AWS Free Tier resources while maintaining production-grade capabilities.
+The architecture is designed for **cost optimization** and **high scalability**, leveraging AWS Free Tier resources while maintaining production-grade capabilities with secure credential management.
 
 ## Cost-Optimized Infrastructure
 
@@ -37,140 +37,222 @@ The architecture is designed for **cost optimization** and **high scalability**,
 
 ## Architecture Components
 
-### 1. Code Location Management
-- **Main Dagster Instance**: Central webserver and daemon running on ECS
-- **Code Location Services**: Separate ECS services for each external repository
-- **Dynamic Registration**: Code locations registered via workspace configuration
+### 1. Dynamic DAG Loading System
+- **S3 Storage**: DAG files stored in `s3://bucket/dags/` subfolder structure
+- **Container Sync**: ECS containers automatically sync DAG files every 60 seconds
+- **No Rebuilds**: DAG changes don't require Docker image rebuilds
+- **Workspace Configuration**: Points to local DAG files synced from S3
 
-### 2. S3 Prefix Isolation
-- **Bucket Structure**: `dagster-storage/repos/{repo-name}/{asset-path}`
-- **Asset Isolation**: Each repository gets its own S3 prefix
-- **Cross-Repository Access**: Controlled via IAM policies
+### 2. Secure Credential Management
+- **AWS Secrets Manager**: Stores S3 access credentials securely
+- **IAM User**: Dedicated user with minimal S3 permissions
+- **ECS Integration**: Secrets automatically injected into containers
+- **No Hardcoded Values**: All credentials and bucket names configurable
 
-### 3. Repository Deployment Pipeline
-- **Git Integration**: Clone external repositories into deployment containers
-- **Build Process**: Create repository-specific Docker images
-- **ECS Deployment**: Deploy as separate ECS services
-- **Registration**: Auto-register with main Dagster instance
+### 3. Container Runtime Architecture
+- **Base Runtime**: Docker image contains only Dagster runtime and sync scripts
+- **Dynamic Content**: DAG files loaded at runtime from S3
+- **Required Variables**: `DAGSTER_S3_BUCKET` must be set (container fails if missing)
+- **Health Monitoring**: Container health tied to S3 sync success
 
-## Workflow
+## Deployment Workflow
 
-### Adding a New Repository
+### DAG Development & Deployment (Fast Path)
 
-1. **Repository Registration**
+1. **Edit DAG Files Locally**
    ```bash
-   make add-repo REPO_URL=https://github.com/user/repo.git REPO_NAME=my-pipeline
+   # Edit your DAG files
+   vim dags/main/assets.py
+   vim dags/main/jobs.py
    ```
 
-2. **Automatic Process**
-   - Clone repository
-   - Build Docker image with repository code
-   - Deploy as new ECS service
-   - Register code location in workspace
-   - Configure S3 prefix: `repos/my-pipeline/`
+2. **Deploy DAGs to S3 (No Docker Rebuild)**
+   ```bash
+   make deploy-dags
+   # Files uploaded to S3 in seconds
+   # Containers auto-sync within 60 seconds
+   # No service restart required!
+   ```
 
-3. **Asset Execution**
-   - Assets run in isolated code location
-   - S3 writes go to `repos/my-pipeline/assets/`
-   - Logs isolated per repository
+3. **Verify Deployment**
+   - DAGs appear in Dagster UI within 60 seconds
+   - No downtime or service interruption
+
+### Runtime Changes (Full Deployment Path)
+
+1. **Infrastructure or Dockerfile Changes**
+   ```bash
+   make build         # Build new Docker image
+   make push          # Push to ECR
+   make deploy        # Restart ECS services
+   ```
+
+2. **Full Deployment (DAGs + Runtime)**
+   ```bash
+   make deploy-all    # Deploy DAGs AND restart containers
+   ```
 
 ### S3 Bucket Structure
 ```
-dagster-storage/
-├── repos/
-│   ├── repo-1/
-│   │   ├── assets/
-│   │   ├── runs/
-│   │   └── logs/
-│   ├── repo-2/
-│   │   ├── assets/
-│   │   ├── runs/
-│   │   └── logs/
-│   └── shared/           # Cross-repository shared data
-├── system/               # Dagster system storage
-└── temp/                # Temporary processing
+s3://your-bucket-name/
+└── dags/                 # DAG files synced to containers
+    ├── __init__.py       # Root DAG definitions
+    └── main/             # Main DAG package
+        ├── __init__.py   # Package definitions
+        ├── assets.py     # Asset definitions
+        ├── jobs.py       # Job definitions
+        └── resources.py  # Resource configurations
 ```
 
 ## Implementation Components
 
-### 1. Repository Manager Service
-- REST API for repository management
-- Git operations (clone, pull, build)
-- ECS service lifecycle management
-- Workspace configuration updates
+### 1. Container Entrypoint Script (`docker/entrypoint.sh`)
+- **S3 Sync Logic**: Downloads DAG files from S3 on startup
+- **Periodic Refresh**: Background process syncs every 60 seconds
+- **Error Handling**: Detailed logging and failure detection
+- **Credential Testing**: Validates AWS credentials before sync
 
-### 2. Code Location Template
-- Base Docker image with common dependencies
-- Dynamic repository mounting
-- S3 configuration injection
-- Resource isolation
+### 2. Dockerfile Architecture (`docker/Dockerfile`)
+- **Runtime Only**: Contains Dagster, AWS CLI, and sync scripts
+- **No DAG Files**: DAG files excluded from image build
+- **Required Variables**: `DAGSTER_S3_BUCKET` must be provided at runtime
+- **Security**: No hardcoded credentials or bucket names
 
-### 3. Infrastructure Extensions
-- Additional ECS task definitions
-- IAM roles per code location
-- Load balancer target groups
-- CloudWatch log groups
+### 3. AWS Infrastructure Components
+- **ECS Task Definition**: Configured with Secrets Manager integration
+- **IAM Roles**: Separate execution and task roles with minimal permissions
+- **Secrets Manager**: Secure storage for S3 access credentials
+- **S3 Bucket**: Configurable bucket name via Terraform variables
 
 ## Configuration
 
-### Repository Specification
-```yaml
-# repos/my-pipeline/config.yml
-name: my-pipeline
-git_url: https://github.com/user/repo.git
-branch: main
-python_file: my_pipeline/definitions.py
-resources:
-  cpu: 256        # 0.25 vCPU (cost-optimized)
-  memory: 512     # 512MB RAM (ARM64 compatible)
-  architecture: ARM64  # 20% cost savings
-s3_prefix: repos/my-pipeline
-environment:
-  - name: CUSTOM_VAR
-    value: custom_value
-scaling:
-  min_capacity: 1
-  max_capacity: 2
-  cpu_threshold: 70
-  memory_threshold: 80
+### Environment Variables
+```bash
+# Required (container fails if not set)
+DAGSTER_S3_BUCKET=your-bucket-name
+
+# Database connection
+DAGSTER_POSTGRES_HOST=rds-endpoint
+DAGSTER_POSTGRES_USER=dagster
+DAGSTER_POSTGRES_PASSWORD=password
+DAGSTER_POSTGRES_DB=dagster
+DAGSTER_POSTGRES_PORT=5432
+
+# AWS region (optional)
+AWS_DEFAULT_REGION=ap-southeast-2
 ```
 
-### Workspace Configuration
+### AWS Secrets Manager Configuration
+```json
+{
+  "AWS_ACCESS_KEY_ID": "AKIA...",
+  "AWS_SECRET_ACCESS_KEY": "..."
+}
+```
+
+### Workspace Configuration (`workspace.yaml`)
 ```yaml
-# workspace.yaml (auto-generated)
+# Points to dynamically synced DAG files
 load_from:
-  - grpc_server:
-      host: my-pipeline-service.local
-      port: 4000
-      location_name: my-pipeline
+  - python_file:
+      relative_path: dags/main/__init__.py
+      location_name: main
 ```
 
-## Security & Isolation
-
-### IAM Policies
-- Each code location has specific S3 prefix access
-- Cross-repository access via explicit policies
-- Read-only access to shared resources
-
-### Network Isolation
-- Code locations in private subnets
-- Internal communication only
-- Centralized logging and monitoring
-
-## Commands
-
-### Repository Management
+### Terraform Outputs
 ```bash
-make add-repo REPO_URL=<url> REPO_NAME=<name>    # Add new repository
-make update-repo REPO_NAME=<name>                # Update repository code
-make remove-repo REPO_NAME=<name>                # Remove repository
-make list-repos                                  # List all repositories
-make repo-logs REPO_NAME=<name>                  # View repository logs
+# Available after infrastructure deployment
+tofu output aws_access_key_id      # S3 access key (sensitive)
+tofu output aws_secret_access_key  # S3 secret key (sensitive)
+tofu output load_balancer_url      # Dagster UI URL
+tofu output s3_bucket_name         # Bucket for DAG storage
 ```
 
-### Development Workflow
-```bash
-make dev-with-repos        # Start local dev with all repositories
-make dev-add-repo          # Add repository to local development
-make sync-repos            # Sync all repositories from remote
+## Security Model
+
+### Principle of Least Privilege
 ```
+ECS Execution Role
+├── Read from AWS Secrets Manager ✓
+└── Pull container images from ECR ✓
+
+ECS Task Role  
+├── Access EFS file system ✓
+└── Read from Secrets Manager ✓
+
+IAM User (for S3)
+├── s3:GetObject on specific bucket ✓
+├── s3:ListBucket on specific bucket ✓
+└── s3:GetBucketLocation ✓
+```
+
+### No Hardcoded Credentials
+- ✅ All bucket names configurable via Terraform variables
+- ✅ AWS credentials stored in Secrets Manager only
+- ✅ Container fails if required environment variables missing
+- ✅ No credentials in Docker images or code
+
+### Network Security
+- ✅ ECS tasks in private subnets
+- ✅ ALB in public subnets for UI access
+- ✅ RDS in private subnets with security group isolation
+- ✅ S3 access over HTTPS only
+
+## Available Commands
+
+### DAG Deployment
+```bash
+make deploy-dags           # Upload DAG files to S3 (fast deployment)
+make deploy               # Restart ECS containers with latest image
+make deploy-all           # Deploy DAGs + restart containers
+```
+
+### Infrastructure Management  
+```bash
+make infra-init           # Initialize Terraform backend
+make infra-plan           # Preview infrastructure changes
+make infra-apply          # Apply infrastructure changes
+make infra-destroy        # Destroy all infrastructure
+```
+
+### Development & Monitoring
+```bash
+make dev                  # Start local development environment
+make logs                 # View ECS container logs
+make build                # Build Docker image locally
+make push                 # Push Docker image to ECR
+```
+
+## Benefits
+
+### Development Velocity
+- **DAG Changes**: Deploy in seconds (S3 upload + 60s auto-sync)
+- **No Docker Rebuilds**: DAG changes don't require container rebuilds
+- **No Service Restarts**: Containers automatically pick up new DAGs
+- **Rapid Iteration**: Edit → Upload → Test cycle under 2 minutes
+
+### Cost Optimization
+- **Faster Deployments**: Less compute time for DAG changes
+- **No ECR Storage**: DAG-only changes don't create new container images
+- **Efficient Resources**: Container resources focused on runtime, not storage
+
+### Operational Excellence
+- **Clear Separation**: Runtime deployment vs DAG deployment
+- **Rollback Capability**: Easy rollback by reverting S3 files
+- **Centralized Storage**: All DAGs versioned and stored in S3
+- **Health Monitoring**: Container health tied to sync success
+
+## Migration from Previous Architecture
+
+**Before (Coupled Architecture):**
+```
+DAG Change → Docker Build → ECR Push → ECS Deploy → 5-10 minute deployment
+```
+
+**After (Dynamic Loading Architecture):**
+```
+DAG Change → S3 Upload → Auto-Sync → 60 second deployment  
+Runtime Change → Docker Build → ECR Push → ECS Deploy → 5-10 minute deployment
+```
+
+This architecture provides **10x faster DAG deployments** while maintaining the same deployment process for infrastructure and runtime changes.

@@ -22,3 +22,6 @@ output "rds_endpoint" {
   description = "RDS instance endpoint"
   value       = aws_db_instance.dagster.endpoint
 }
+
+# AWS Secrets Keys
+
