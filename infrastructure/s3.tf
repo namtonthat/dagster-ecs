@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "dagster" {
-  bucket = "${local.name_prefix}-storage-${random_id.bucket_suffix.hex}"
+  bucket = "ntonthat-dagster-ecs"
 
   tags = local.tags
 }
@@ -35,6 +35,3 @@ resource "aws_s3_bucket_public_access_block" "dagster" {
   restrict_public_buckets = true
 }
 
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
