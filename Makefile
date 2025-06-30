@@ -3,6 +3,9 @@
 # Infrastructure directory
 INFRA_DIR := infrastructure
 
+# AWS Account ID (get from Terraform outputs)
+AWS_ACCOUNT_ID := $(shell tofu -chdir=$(INFRA_DIR) output -raw ecr_repository_url | cut -d'.' -f1)
+
 # Default target
 help:
 	@echo "Available commands:"

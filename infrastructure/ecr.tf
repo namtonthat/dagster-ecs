@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "dagster" {
-  name                 = "${local.name_prefix}-app"
+  name                 = local.name_prefix
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
