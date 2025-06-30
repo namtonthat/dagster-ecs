@@ -59,7 +59,8 @@
       "Bash(./scripts/security-check.sh:*)",
       "Bash(./scripts/ci-simulation.sh:*)",
       "Bash(python test:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
