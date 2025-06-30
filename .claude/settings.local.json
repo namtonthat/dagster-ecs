@@ -28,7 +28,19 @@
       "Bash(aws rds describe-db-engine-versions:*)",
       "Bash(terraform import:*)",
       "Bash(terraform init:*)",
-      "Bash(tofu init:*)"
+      "Bash(tofu init:*)",
+      "Bash(tofu validate:*)",
+      "Bash(tofu apply:*)",
+      "Bash(tofu show:*)",
+      "Bash(tofu import:*)",
+      "Bash(tofu:*)",
+      "Bash(aws s3 mb:*)",
+      "Bash(aws s3api put-bucket-versioning:*)",
+      "Bash(aws s3 rb:*)",
+      "Bash(aws s3api delete-bucket:*)",
+      "Bash(aws s3api list-object-versions:*)",
+      "Bash(aws s3api delete-object:*)",
+      "Bash(aws ecs describe-clusters:*)"
     ],
     "deny": []
   }

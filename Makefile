@@ -1,4 +1,4 @@
-.PHONY: help install dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test
+.PHONY: help install dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test url
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
@@ -28,6 +28,7 @@ help:
 	@echo "    infra-plan    - Preview infrastructure changes"
 	@echo "    infra-apply   - Apply infrastructure changes"
 	@echo "    infra-destroy - Destroy infrastructure"
+	@echo "    url           - Show Dagster web UI URL"
 
 # Local Development
 install:
@@ -115,4 +116,9 @@ test:
 	ruff format .
 	@echo "Running tests..."
 	pytest
+
+# Infrastructure info
+url:
+	@echo "Fetching Dagster web UI URL..."
+	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url
 

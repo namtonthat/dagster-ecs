@@ -16,8 +16,7 @@ resource "aws_efs_file_system" "dagster_dags" {
   creation_token = "${local.name_prefix}-dags"
   
   performance_mode = "generalPurpose"
-  throughput_mode  = "provisioned"
-  provisioned_throughput_in_mibps = 100
+  throughput_mode  = "bursting"
 
   tags = merge(local.tags, {
     Name = "${local.name_prefix}-dags-efs"
@@ -149,8 +148,14 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
   family                   = "${local.name_prefix}-webserver-fargate"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = 1024
-  memory                   = 2048
+  
+  # Use ARM64 for cost optimization
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
+  cpu                      = 256
+  memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution_fargate.arn
   task_role_arn           = aws_iam_role.ecs_task_fargate.arn
 
@@ -233,6 +238,10 @@ resource "aws_ecs_service" "dagster_fargate" {
   cluster         = aws_ecs_cluster.dagster_fargate.id
   task_definition = aws_ecs_task_definition.dagster_fargate.arn
   desired_count   = 1
+
+  # Enable deployment configuration for rolling updates
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 50
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -250,6 +259,47 @@ resource "aws_ecs_service" "dagster_fargate" {
   depends_on = [aws_lb_listener.dagster]
 
   tags = local.tags
+}
+
+# Auto Scaling Target
+resource "aws_appautoscaling_target" "dagster_fargate" {
+  max_capacity       = 2
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.dagster_fargate.name}/${aws_ecs_service.dagster_fargate.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+# Auto Scaling Policy - CPU based
+resource "aws_appautoscaling_policy" "dagster_fargate_cpu" {
+  name               = "${local.name_prefix}-fargate-cpu-scaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.dagster_fargate.resource_id
+  scalable_dimension = aws_appautoscaling_target.dagster_fargate.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.dagster_fargate.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value = 70.0
+  }
+}
+
+# Auto Scaling Policy - Memory based
+resource "aws_appautoscaling_policy" "dagster_fargate_memory" {
+  name               = "${local.name_prefix}-fargate-memory-scaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.dagster_fargate.resource_id
+  scalable_dimension = aws_appautoscaling_target.dagster_fargate.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.dagster_fargate.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageMemoryUtilization"
+    }
+    target_value = 80.0
+  }
 }
 
 # CloudWatch Log Group

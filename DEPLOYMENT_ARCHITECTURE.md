@@ -4,6 +4,37 @@
 
 This system enables dynamic deployment of external Dagster repositories into the ECS-based Dagster deployment. Each external repository becomes a separate code location with isolated S3 storage.
 
+The architecture is designed for **cost optimization** and **high scalability**, leveraging AWS Free Tier resources while maintaining production-grade capabilities.
+
+## Cost-Optimized Infrastructure
+
+### Resource Allocation (Optimized for 2-3 Concurrent Users)
+- **ECS Tasks**: 0.25 vCPU, 512MB RAM per service (ARM64 architecture)
+- **Auto Scaling**: 1-2 instances based on demand (CPU: 70%, Memory: 80%)
+- **Database**: RDS db.t3.micro (Free Tier eligible)
+- **Storage**: EFS burst mode + S3 standard tier
+- **Networking**: Minimal VPC configuration
+
+### Monthly Cost Breakdown
+**AWS Free Tier (First 12 months):**
+- ECS Fargate: ~$3-5/month (minimal ARM64 tasks)
+- RDS PostgreSQL: $0 (750 hours/month included)
+- EFS Storage: $0 (5GB included)
+- S3 Storage: $0 (5GB included)
+- **Total**: ~$3-8/month
+
+**Post Free Tier:**
+- ECS Fargate: ~$8-12/month
+- RDS PostgreSQL: ~$12-15/month
+- EFS + S3: ~$2-5/month
+- **Total**: ~$22-32/month
+
+### Scalability Design
+- **Horizontal Scaling**: Automatic ECS task scaling
+- **Vertical Scaling**: Easy resource adjustments in OpenTofu
+- **Storage Scaling**: Unlimited S3/EFS expansion
+- **Multi-Repository**: Isolated cost tracking per repository
+
 ## Architecture Components
 
 ### 1. Code Location Management
@@ -90,12 +121,18 @@ git_url: https://github.com/user/repo.git
 branch: main
 python_file: my_pipeline/definitions.py
 resources:
-  cpu: 256
-  memory: 512
+  cpu: 256        # 0.25 vCPU (cost-optimized)
+  memory: 512     # 512MB RAM (ARM64 compatible)
+  architecture: ARM64  # 20% cost savings
 s3_prefix: repos/my-pipeline
 environment:
   - name: CUSTOM_VAR
     value: custom_value
+scaling:
+  min_capacity: 1
+  max_capacity: 2
+  cpu_threshold: 70
+  memory_threshold: 80
 ```
 
 ### Workspace Configuration

@@ -33,3 +33,8 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "s3_bucket_name" {
+  description = "S3 bucket name for Dagster storage"
+  type        = string
+}

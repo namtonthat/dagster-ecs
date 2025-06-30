@@ -25,12 +25,47 @@ This repository contains a Dagster deployment configuration for AWS ECS. The pro
 Implement a minimal but production-ready Dagster deployment:
 - **Local Development**: Full Dagster stack running locally with Docker Compose
 - **Cloud Deployment**: Streamlined ECS deployment with minimal AWS resources
+- **Cost-Optimized**: Designed for AWS Free Tier with automatic scaling
 - **Essential Components Only**:
   - Dagster webserver (UI/API)
   - Dagster daemon (orchestration)
   - PostgreSQL (RDS for cloud, local container for dev)
   - S3 bucket for assets/logs
   - Basic networking (VPC, subnets, security groups)
+
+## Cost Structure & Scalability
+
+### Low-Cost Design
+This deployment is optimized for **minimal AWS costs** while maintaining production capabilities:
+
+**AWS Free Tier Utilization:**
+- **ECS Fargate**: 0.25 vCPU, 512MB RAM with ARM64 architecture (~$3-5/month)
+- **RDS PostgreSQL**: db.t3.micro instance (Free Tier: 750 hours/month)
+- **EFS Storage**: Burst mode (Free Tier: 5GB storage)
+- **S3 Storage**: Standard tier (Free Tier: 5GB)
+- **CloudWatch Logs**: 5GB/month included in Free Tier
+
+**Estimated Monthly Cost:**
+- **Within Free Tier**: ~$0-5/month for light usage (2-3 users)
+- **Post Free Tier**: ~$15-25/month for sustained usage
+- **Cost Scaling**: Automatic resource scaling based on actual demand
+
+### High Scalability Features
+
+**Automatic Scaling:**
+- **ECS Auto Scaling**: 1-2 instances based on CPU (70%) and memory (80%) thresholds
+- **Database Scaling**: RDS supports vertical scaling when needed
+- **Storage Scaling**: S3 and EFS automatically scale with usage
+
+**Performance Optimizations:**
+- **ARM64 Architecture**: ~20% cost savings over x86 instances
+- **Burst Mode EFS**: Cost-effective storage with performance bursting
+- **Container Optimization**: Minimal resource allocation for 2-3 concurrent users
+
+**Scalability Capacity:**
+- **Current Config**: Supports 2-3 concurrent users comfortably
+- **Scale-Up Path**: Easy resource adjustment for 10+ users
+- **Multi-Repository**: Isolated S3 storage per external repository
 
 ## Development Workflow
 
