@@ -24,7 +24,11 @@
       "Bash(uv run:*)",
       "Bash(ty:*)",
       "Bash(git config:*)",
-      "Bash(pre-commit install:*)"
+      "Bash(pre-commit install:*)",
+      "Bash(aws rds describe-db-engine-versions:*)",
+      "Bash(terraform import:*)",
+      "Bash(terraform init:*)",
+      "Bash(tofu init:*)"
     ],
     "deny": []
   }

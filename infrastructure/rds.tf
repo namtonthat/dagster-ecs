@@ -35,7 +35,7 @@ resource "aws_db_instance" "dagster" {
   identifier = "${local.name_prefix}-db"
 
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "15.13"
   instance_class = "db.t3.micro"
 
   allocated_storage     = 20

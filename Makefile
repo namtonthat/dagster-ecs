@@ -76,7 +76,7 @@ logs:
 # Infrastructure management
 infra-init:
 	@echo "Initializing OpenTofu..."
-	tofu -chdir=$(INFRA_DIR) init
+	tofu -chdir=$(INFRA_DIR) init -upgrade
 
 infra-plan:
 	@echo "Planning infrastructure changes..."

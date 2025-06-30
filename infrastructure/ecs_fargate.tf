@@ -1,7 +1,7 @@
 # ECS Fargate deployment with EFS for DAGs storage
 
 resource "aws_ecs_cluster" "dagster_fargate" {
-  name = "${local.name_prefix}-fargate-cluster"
+  name = "dagster-ecs-fargate-cluster"
 
   setting {
     name  = "containerInsights"
@@ -229,7 +229,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
 
 # ECS Service
 resource "aws_ecs_service" "dagster_fargate" {
-  name            = "${local.name_prefix}-service-fargate"
+  name            = "dagster-ecs-fargate-service"
   cluster         = aws_ecs_cluster.dagster_fargate.id
   task_definition = aws_ecs_task_definition.dagster_fargate.arn
   desired_count   = 1

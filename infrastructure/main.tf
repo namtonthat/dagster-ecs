@@ -13,11 +13,10 @@ provider "aws" {
 }
 
 locals {
-  name_prefix = "dagster-${var.environment}"
+  name_prefix = "dagster-ecs"
   
   tags = {
-    Project     = "dagster-ecs"
-    Environment = var.environment
+    Project     = "dagster-ecs-fargate"
     ManagedBy   = "opentofu"
   }
 }
