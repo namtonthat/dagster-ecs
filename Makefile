@@ -21,6 +21,10 @@ install: ## Install Python dependencies with uv
 	@echo "Installing Python dependencies..."
 	uv sync
 
+build-local: ## Build Docker image for local development
+	@echo "Building Docker image for local development..."
+	docker build --target local -f docker/Dockerfile -t dagster-ecs:local .
+
 dev: ## Start local Dagster stack with Docker Compose
 	@echo "Starting local Dagster stack..."
 	docker-compose up -d
@@ -41,9 +45,9 @@ dev-reset: ## Reset local database and restart
 
 ##@ Deployment
 
-build: ## Build and tag Docker images (runtime only)
-	@echo "Building Docker image..."
-	docker build -f docker/Dockerfile -t dagster-ecs:latest .
+build: ## Build and tag Docker images (production target)
+	@echo "Building Docker image for production..."
+	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
 
 push: ## Push images to ECR
 	@echo "Pushing to ECR..."

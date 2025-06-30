@@ -27,20 +27,7 @@ compute_logs:
     region:
       env: AWS_DEFAULT_REGION
 
-# Run storage - stores run metadata and status
-run_storage:
-  module: dagster.core.storage.runs
-  class: SqlRunStorage
-
-# Event log storage - stores all events from runs (with S3 for large events)
-event_log_storage:
-  module: dagster.core.storage.event_log
-  class: SqlEventLogStorage
-
-# Schedule storage - stores schedule metadata
-schedule_storage:
-  module: dagster.core.storage.schedules
-  class: SqlScheduleStorage
+# Note: Using consolidated 'storage' config instead of individual storage configs
 
 # Local artifact storage for temporary files
 local_artifact_storage:
@@ -147,13 +134,7 @@ scheduler:
   module: dagster.core.scheduler
   class: DagsterDaemonScheduler
 
-# Run queue configuration
-run_queue:
-  max_concurrent_runs: 3
-  tag_concurrency_limits:
-    - key: 'compute_kind'
-      value: 'heavy'
-      limit: 1
+# Note: run_queue is deprecated in favor of run_coordinator
 
 # Telemetry (disable in production for privacy)
 telemetry:

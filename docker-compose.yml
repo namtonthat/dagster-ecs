@@ -18,15 +18,16 @@ services:
     networks:
       - dagster_network
 
-  # Dagster webserver with nginx auth proxy
-  # Mirrors production ECS setup but with local DAG mounting instead of S3 sync
+  # Dagster webserver for local development
+  # Uses lightweight local stage without nginx/auth proxy
   dagster-webserver:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: local
     container_name: dagster_webserver
     ports:
-      - "3000:80"
+      - "3000:3000"
     environment:
       DAGSTER_POSTGRES_USER: dagster
       DAGSTER_POSTGRES_PASSWORD: dagster
@@ -34,20 +35,10 @@ services:
       DAGSTER_POSTGRES_HOST: postgres
       DAGSTER_POSTGRES_PORT: 5432
       DAGSTER_HOME: /app/.dagster_home
-      DAGSTER_AUTH_USER: admin
-      DAGSTER_AUTH_PASSWORD: DagsterPipeline2024!
-      DAGSTER_DOCKER_IMAGE: dagster-ecs-dagster-webserver:latest
-      # For local development, S3 is optional
-      DAGSTER_S3_BUCKET: local-dagster-bucket
-      AWS_DEFAULT_REGION: ap-southeast-2
-      AWS_ACCESS_KEY_ID: local
-      AWS_SECRET_ACCESS_KEY: local
     volumes:
-      - ./dags:/app/dags
       - ./workspace.yaml:/app/workspace.yaml
       - ./dagster-local.yaml:/app/.dagster_home/dagster.yaml
       - ./.dagster_home:/app/.dagster_home
-      - /var/run/docker.sock:/var/run/docker.sock  # For Docker run launcher
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,11 +47,12 @@ services:
       - dagster_network
 
   # Dagster daemon for schedules, sensors, and run queue
-  # Mirrors production ECS daemon setup
+  # Uses local stage for consistency with webserver
   dagster-daemon:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: local
     container_name: dagster_daemon
     command: ["dagster-daemon", "run"]
     environment:
@@ -70,18 +62,10 @@ services:
       DAGSTER_POSTGRES_HOST: postgres
       DAGSTER_POSTGRES_PORT: 5432
       DAGSTER_HOME: /app/.dagster_home
-      DAGSTER_DOCKER_IMAGE: dagster-ecs-dagster-webserver:latest
-      # For local development, S3 is optional
-      DAGSTER_S3_BUCKET: local-dagster-bucket
-      AWS_DEFAULT_REGION: ap-southeast-2
-      AWS_ACCESS_KEY_ID: local
-      AWS_SECRET_ACCESS_KEY: local
     volumes:
-      - ./dags:/app/dags
       - ./workspace.yaml:/app/workspace.yaml
       - ./dagster-local.yaml:/app/.dagster_home/dagster.yaml
       - ./.dagster_home:/app/.dagster_home
-      - /var/run/docker.sock:/var/run/docker.sock  # For Docker run launcher
     depends_on:
       postgres:
         condition: service_healthy

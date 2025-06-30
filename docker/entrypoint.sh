@@ -89,12 +89,18 @@ periodic_sync() {
 # Setup authentication
 setup_auth
 
-# Initial sync - this must succeed for container to start
-sync_dags
-
-# Start periodic sync in background
-periodic_sync &
-SYNC_PID=$!
+# Check if running in local development mode
+if [ "$AWS_ACCESS_KEY_ID" = "local" ] || [ "$AWS_SECRET_ACCESS_KEY" = "local" ]; then
+    echo "Detected local development mode, skipping S3 sync..."
+    SYNC_PID=""
+else
+    # Initial sync - this must succeed for container to start
+    sync_dags
+    
+    # Start periodic sync in background
+    periodic_sync &
+    SYNC_PID=$!
+fi
 
 # Fix permissions for dagster home directory
 if [ "$(id -u)" = '0' ]; then
@@ -104,8 +110,10 @@ fi
 
 # Cleanup function
 cleanup() {
-    echo "Shutting down periodic sync..."
-    kill $SYNC_PID 2>/dev/null || true
+    if [ -n "$SYNC_PID" ]; then
+        echo "Shutting down periodic sync..."
+        kill $SYNC_PID 2>/dev/null || true
+    fi
     exit 0
 }
 
