@@ -66,7 +66,7 @@ resource "aws_route_table_association" "public" {
 # NAT Gateway for private subnet internet access
 resource "aws_eip" "nat" {
   domain = "vpc"
-  
+
   depends_on = [aws_internet_gateway.main]
 
   tags = merge(local.tags, {

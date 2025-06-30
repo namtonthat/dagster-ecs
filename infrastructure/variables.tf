@@ -51,3 +51,4 @@ variable "dagster_auth_password" {
   sensitive   = true
   # No default - must be provided via terraform.tfvars
 }
+

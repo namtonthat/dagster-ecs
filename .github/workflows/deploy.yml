@@ -48,6 +48,18 @@ jobs:
           # Run security checks using make command
           make security-check
 
+      - name: Configure AWS credentials for OpenTofu
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Initialize OpenTofu
+        run: |
+          cd infrastructure
+          tofu init -backend-config=backend.hcl
+
       - name: Validate AWS credentials output format
         run: |
           # Test that aws-credentials command outputs exactly 2 lines
@@ -122,7 +134,7 @@ jobs:
 
           # Initialize and get current Dagster URL
           cd infrastructure
-          tofu init
+          tofu init -backend-config=backend.hcl
           DAGSTER_URL=$(tofu output -raw load_balancer_url)
           cd ..
 

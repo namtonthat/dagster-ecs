@@ -1,3 +1,3 @@
 bucket = "ntonthat-dagster-ecs"
-key    = "infra/terraform.tfstate"
+key    = "terraform/terraform.tfstate"
 region = "ap-southeast-2"

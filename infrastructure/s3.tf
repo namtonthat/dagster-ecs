@@ -1,7 +1,6 @@
 resource "aws_s3_bucket" "dagster" {
   bucket = var.s3_bucket_name
-
-  tags = local.tags
+  tags   = local.tags
 }
 
 

@@ -14,7 +14,7 @@ resource "aws_ecs_cluster" "dagster_fargate" {
 # EFS for DAGs storage (since Fargate doesn't support EBS)
 resource "aws_efs_file_system" "dagster_dags" {
   creation_token = "${local.name_prefix}-dags"
-  
+
   performance_mode = "generalPurpose"
   throughput_mode  = "bursting"
 
@@ -84,23 +84,23 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
   family                   = "${local.name_prefix}-webserver-fargate"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  
+
   # Use ARM64 for cost optimization
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "ARM64"
   }
-  cpu                      = 256
-  memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_task_execution_fargate.arn
-  task_role_arn           = aws_iam_role.ecs_task_fargate.arn
+  cpu                = 256
+  memory             = 512
+  execution_role_arn = aws_iam_role.ecs_task_execution_fargate.arn
+  task_role_arn      = aws_iam_role.ecs_task_fargate.arn
 
   volume {
     name = "dagster-dags"
 
     efs_volume_configuration {
-      file_system_id = aws_efs_file_system.dagster_dags.id
-      root_directory = "/"
+      file_system_id     = aws_efs_file_system.dagster_dags.id
+      root_directory     = "/"
       transit_encryption = "ENABLED"
     }
   }
@@ -109,7 +109,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
     {
       name  = "dagster-webserver"
       image = "${aws_ecr_repository.dagster.repository_url}:latest"
-      
+
       portMappings = [
         {
           containerPort = 80
@@ -232,23 +232,23 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
   family                   = "${local.name_prefix}-daemon-fargate"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  
+
   # Use ARM64 for cost optimization
   runtime_platform {
     operating_system_family = "LINUX"
     cpu_architecture        = "ARM64"
   }
-  cpu                      = 256
-  memory                   = 512
-  execution_role_arn       = aws_iam_role.ecs_task_execution_fargate.arn
-  task_role_arn           = aws_iam_role.ecs_task_fargate.arn
+  cpu                = 256
+  memory             = 512
+  execution_role_arn = aws_iam_role.ecs_task_execution_fargate.arn
+  task_role_arn      = aws_iam_role.ecs_task_fargate.arn
 
   volume {
     name = "dagster-dags"
 
     efs_volume_configuration {
-      file_system_id = aws_efs_file_system.dagster_dags.id
-      root_directory = "/"
+      file_system_id     = aws_efs_file_system.dagster_dags.id
+      root_directory     = "/"
       transit_encryption = "ENABLED"
     }
   }
@@ -257,7 +257,7 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
     {
       name  = "dagster-daemon"
       image = "${aws_ecr_repository.dagster.repository_url}:latest"
-      
+
       # Override the default command to run daemon
       command = ["dagster-daemon", "run"]
 
@@ -340,12 +340,12 @@ resource "aws_ecs_service" "dagster_daemon_fargate" {
 
   # Enable deployment configuration for rolling updates
   deployment_maximum_percent         = 200
-  deployment_minimum_healthy_percent = 0  # Daemon can be down briefly
-  launch_type     = "FARGATE"
+  deployment_minimum_healthy_percent = 0 # Daemon can be down briefly
+  launch_type                        = "FARGATE"
 
   network_configuration {
     security_groups  = [aws_security_group.ecs_tasks_fargate.id]
-    subnets         = aws_subnet.private[*].id
+    subnets          = aws_subnet.private[*].id
     assign_public_ip = false
   }
 
@@ -371,11 +371,11 @@ resource "aws_ecs_service" "dagster_fargate" {
   # Enable deployment configuration for rolling updates
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 50
-  launch_type     = "FARGATE"
+  launch_type                        = "FARGATE"
 
   network_configuration {
     security_groups  = [aws_security_group.ecs_tasks_fargate.id]
-    subnets         = aws_subnet.private[*].id
+    subnets          = aws_subnet.private[*].id
     assign_public_ip = false
   }
 

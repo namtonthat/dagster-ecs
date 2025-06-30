@@ -6,12 +6,11 @@ terraform {
       version = "~> 5.0"
     }
   }
-  
+
   backend "s3" {
-    # Backend configuration will be provided via backend config file or CLI
-    # bucket = "your-tfstate-bucket"
-    # key    = "terraform.tfstate"  
-    # region = "ap-southeast-2"
+    # Backend configuration provided via environment variables:
+    # TF_VAR_bucket, TF_VAR_key, TF_VAR_region
+    # Or via -backend-config file
   }
 }
 
@@ -21,9 +20,9 @@ provider "aws" {
 
 locals {
   name_prefix = "dagster-ecs"
-  
+
   tags = {
-    Project     = "dagster-ecs-fargate"
-    ManagedBy   = "opentofu"
+    Project   = "dagster-ecs-fargate"
+    ManagedBy = "opentofu"
   }
 }

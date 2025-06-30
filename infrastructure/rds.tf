@@ -51,7 +51,7 @@ resource "aws_db_instance" "dagster" {
   db_subnet_group_name   = aws_db_subnet_group.dagster.name
 
   backup_retention_period = 0
-  maintenance_window     = "sun:04:00-sun:05:00"
+  maintenance_window      = "sun:04:00-sun:05:00"
 
   skip_final_snapshot = true
   deletion_protection = false
