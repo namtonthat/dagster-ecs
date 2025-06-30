@@ -8,9 +8,9 @@ on:
 
 env:
   AWS_REGION: ap-southeast-2
-  ECR_REPOSITORY: dagster-dev-app
-  ECS_SERVICE: dagster-dev-service-fargate
-  ECS_CLUSTER: dagster-dev-fargate-cluster
+  ECR_REPOSITORY: dagster-ecs
+  ECS_SERVICE: dagster-ecs-fargate-service
+  ECS_CLUSTER: dagster-ecs-fargate-cluster
 
 jobs:
   test:
