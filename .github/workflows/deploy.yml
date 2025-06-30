@@ -24,6 +24,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Configure AWS credentials for OpenTofu
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Install the latest version of `uv`
         uses: astral-sh/setup-uv@v5
 
@@ -52,13 +59,6 @@ jobs:
         run: |
           # Run security checks using make command
           make security-check
-
-      - name: Configure AWS credentials for OpenTofu
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Validate AWS credentials output format
         run: |
