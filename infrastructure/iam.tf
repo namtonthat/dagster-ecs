@@ -6,11 +6,27 @@ resource "aws_iam_user" "dagster_s3_user" {
   tags = local.tags
 }
 
-# IAM policy for S3 access
-resource "aws_iam_policy" "dagster_s3_policy" {
-  name        = "${local.name_prefix}-s3-policy"
+# Attach AWS managed policies to user for CI/CD operations
+resource "aws_iam_user_policy_attachment" "dagster_s3_full_access" {
+  user       = aws_iam_user.dagster_s3_user.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+resource "aws_iam_user_policy_attachment" "dagster_ecr_full_access" {
+  user       = aws_iam_user.dagster_s3_user.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
+}
+
+resource "aws_iam_user_policy_attachment" "dagster_ecs_full_access" {
+  user       = aws_iam_user.dagster_s3_user.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
+}
+
+# Custom policy only for IAM PassRole (required for ECS task role passing)
+resource "aws_iam_policy" "dagster_iam_pass_role" {
+  name        = "${local.name_prefix}-iam-pass-role"
   path        = "/"
-  description = "Policy for Dagster S3 access"
+  description = "Policy to allow IAM role passing for ECS tasks"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -18,13 +34,10 @@ resource "aws_iam_policy" "dagster_s3_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:ListBucket",
-          "s3:GetBucketLocation"
+          "iam:PassRole"
         ]
         Resource = [
-          aws_s3_bucket.dagster.arn,
-          "${aws_s3_bucket.dagster.arn}/*"
+          "arn:aws:iam::*:role/${local.name_prefix}-*"
         ]
       }
     ]
@@ -33,10 +46,9 @@ resource "aws_iam_policy" "dagster_s3_policy" {
   tags = local.tags
 }
 
-# Attach policy to user
-resource "aws_iam_user_policy_attachment" "dagster_s3_user_policy" {
+resource "aws_iam_user_policy_attachment" "dagster_iam_pass_role" {
   user       = aws_iam_user.dagster_s3_user.name
-  policy_arn = aws_iam_policy.dagster_s3_policy.arn
+  policy_arn = aws_iam_policy.dagster_iam_pass_role.arn
 }
 
 # Create access keys for the user

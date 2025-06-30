@@ -60,7 +60,9 @@
       "Bash(./scripts/ci-simulation.sh:*)",
       "Bash(python test:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(env)",
+      "Bash(aws:*)"
     ],
     "deny": []
   }
