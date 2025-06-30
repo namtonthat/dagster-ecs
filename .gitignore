@@ -50,4 +50,4 @@ docker-compose.override.yml
 
 # Environment variables
 .env
-.env.local
+.env.localinfrastructure/terraform.tfvars

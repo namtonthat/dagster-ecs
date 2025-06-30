@@ -1,5 +1,8 @@
 .PHONY: help install dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test
 
+# Infrastructure directory
+INFRA_DIR := infrastructure
+
 # Default target
 help:
 	@echo "Available commands:"
@@ -73,19 +76,19 @@ logs:
 # Infrastructure management
 infra-init:
 	@echo "Initializing OpenTofu..."
-	cd infrastructure && tofu init
+	tofu -chdir=$(INFRA_DIR) init
 
 infra-plan:
 	@echo "Planning infrastructure changes..."
-	cd infrastructure && tofu plan
+	tofu -chdir=$(INFRA_DIR) plan
 
 infra-apply:
 	@echo "Applying infrastructure changes..."
-	cd infrastructure && tofu apply
+	tofu -chdir=$(INFRA_DIR) apply
 
 infra-destroy:
 	@echo "Destroying infrastructure..."
-	cd infrastructure && tofu destroy
+	tofu -chdir=$(INFRA_DIR) destroy
 
 # DAG Development
 create:
