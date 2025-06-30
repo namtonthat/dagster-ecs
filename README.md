@@ -66,14 +66,12 @@ flowchart LR
     style F fill:#fff3e0
 ```
 
-⚡ **10x Faster**: DAG changes deploy in ~60 seconds (no Docker rebuilds!)
-
 ## 🚀 Quick Start
 
 ### 📋 Prerequisites
 
 - Docker and Docker Compose
-- uv (Python package manager)
+- `uv` (Python package manager)
 - Python 3.12+
 
 ### 💻 Local Development

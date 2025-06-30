@@ -17,14 +17,31 @@ resource "aws_iam_user_policy_attachment" "dagster_ecr_full_access" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
 }
 
-resource "aws_iam_user_policy_attachment" "dagster_ecr_power_user" {
-  user       = aws_iam_user.dagster_s3_user.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
-}
-
 resource "aws_iam_user_policy_attachment" "dagster_ecs_full_access" {
   user       = aws_iam_user.dagster_s3_user.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
+}
+
+# Custom policy for ECR authorization token (required for docker login)
+resource "aws_iam_policy" "dagster_ecr_auth_token" {
+  name        = "${local.name_prefix}-ecr-auth-token"
+  path        = "/"
+  description = "Policy to allow ECR authorization token retrieval"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = local.tags
 }
 
 # Custom policy only for IAM PassRole (required for ECS task role passing)
@@ -49,6 +66,11 @@ resource "aws_iam_policy" "dagster_iam_pass_role" {
   })
 
   tags = local.tags
+}
+
+resource "aws_iam_user_policy_attachment" "dagster_ecr_auth_token" {
+  user       = aws_iam_user.dagster_s3_user.name
+  policy_arn = aws_iam_policy.dagster_ecr_auth_token.arn
 }
 
 resource "aws_iam_user_policy_attachment" "dagster_iam_pass_role" {
@@ -246,3 +268,4 @@ output "aws_secret_access_key" {
   value       = aws_iam_access_key.dagster_s3_user_key.secret
   sensitive   = true
 }
+
