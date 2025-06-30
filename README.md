@@ -1,5 +1,6 @@
 # Dagster ECS Fargate Deployment
 
+[![Deploy to AWS ECS](https://github.com/namtonthat/dagster-ecs/workflows/Deploy%20to%20AWS%20ECS/badge.svg)](https://github.com/namtonthat/dagster-ecs/actions)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6+-purple.svg)](https://opentofu.org/)
