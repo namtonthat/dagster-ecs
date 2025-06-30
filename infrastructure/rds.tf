@@ -1,6 +1,6 @@
 resource "aws_db_subnet_group" "dagster" {
   name       = "${local.name_prefix}-db-subnet-group"
-  subnet_ids = aws_subnet.private[*].id
+  subnet_ids = aws_subnet.public[*].id
 
   tags = merge(local.tags, {
     Name = "${local.name_prefix}-db-subnet-group"

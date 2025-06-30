@@ -24,10 +24,10 @@ resource "aws_efs_file_system" "dagster_dags" {
 }
 
 resource "aws_efs_mount_target" "dagster_dags" {
-  count = length(aws_subnet.private)
+  count = length(aws_subnet.public)
 
   file_system_id  = aws_efs_file_system.dagster_dags.id
-  subnet_id       = aws_subnet.private[count.index].id
+  subnet_id       = aws_subnet.public[count.index].id
   security_groups = [aws_security_group.efs.id]
 }
 
@@ -172,7 +172,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
         },
         {
           name  = "DAGSTER_ECS_SUBNETS"
-          value = join(",", aws_subnet.private[*].id)
+          value = join(",", aws_subnet.public[*].id)
         },
         {
           name  = "DAGSTER_ECS_EXECUTION_ROLE_ARN"
@@ -345,8 +345,8 @@ resource "aws_ecs_service" "dagster_daemon_fargate" {
 
   network_configuration {
     security_groups  = [aws_security_group.ecs_tasks_fargate.id]
-    subnets          = aws_subnet.private[*].id
-    assign_public_ip = false
+    subnets          = aws_subnet.public[*].id
+    assign_public_ip = true
   }
 
   # Daemon doesn't need load balancer
@@ -375,8 +375,8 @@ resource "aws_ecs_service" "dagster_fargate" {
 
   network_configuration {
     security_groups  = [aws_security_group.ecs_tasks_fargate.id]
-    subnets          = aws_subnet.private[*].id
-    assign_public_ip = false
+    subnets          = aws_subnet.public[*].id
+    assign_public_ip = true
   }
 
   load_balancer {
