@@ -30,19 +30,6 @@ resource "aws_subnet" "public" {
   })
 }
 
-resource "aws_subnet" "private" {
-  count = length(var.availability_zones)
-
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.${count.index + 10}.0/24"
-  availability_zone = var.availability_zones[count.index]
-
-  tags = merge(local.tags, {
-    Name = "${local.name_prefix}-private-${count.index + 1}"
-    Type = "private"
-  })
-}
-
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -60,13 +47,5 @@ resource "aws_route_table_association" "public" {
   count = length(aws_subnet.public)
 
   subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
-
-# Private subnets now use public route table for direct internet access
-resource "aws_route_table_association" "private_to_public" {
-  count = length(aws_subnet.private)
-
-  subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.public.id
 }

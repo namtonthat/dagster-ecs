@@ -1,10 +1,7 @@
-.PHONY: help install dev stop dev-logs dev-reset build push deploy-dags deploy deploy-all logs infra-init infra-plan infra-apply infra-destroy create test url
+.PHONY: help install dev stop dev-logs dev-reset build push deploy logs infra-init infra-plan infra-apply infra-destroy create test url
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
-
-# AWS Account ID (get from Terraform outputs)
-AWS_ACCOUNT_ID := $(shell tofu -chdir=$(INFRA_DIR) output -raw ecr_repository_url | cut -d'.' -f1)
 
 # Default target - dynamically generate help from target comments
 help: ## Show this help message
@@ -50,23 +47,14 @@ build: ## Build and tag Docker images (production target)
 	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
 
 push: ## Push images to ECR
-	@echo "Pushing to ECR..."
-	@echo "Note: Ensure ECR repository exists and AWS CLI is configured"
-	aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.ap-southeast-2.amazonaws.com
-	docker tag dagster-ecs:latest $(AWS_ACCOUNT_ID).dkr.ecr.ap-southeast-2.amazonaws.com/dagster-ecs:latest
-	docker push $(AWS_ACCOUNT_ID).dkr.ecr.ap-southeast-2.amazonaws.com/dagster-ecs:latest
-
-deploy-dags: ## Upload DAG files to S3 (fast deployment)
-	@echo "Deploying DAGs to S3..."
-	./scripts/deploy-dags.sh
+	@./scripts/push.sh
 
 deploy: ## Deploy latest images to ECS Fargate
+	@echo "Deploying DAGs to S3..."
+	./scripts/deploy-dags.sh
 	@echo "Deploying to ECS Fargate..."
 	@echo "Note: This requires ECS cluster to be created via infrastructure"
 	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
-
-deploy-all: deploy-dags deploy ## Upload DAGs and restart ECS service
-	@echo "✅ Full deployment complete - DAGs uploaded to S3 and ECS service restarted"
 
 logs: ## View ECS Fargate logs
 	@echo "Viewing ECS Fargate logs..."
@@ -112,6 +100,9 @@ auth-show: ## Show current authentication configuration
 url: ## Show Dagster web UI URL
 	@echo "Fetching Dagster web UI URL..."
 	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url
+
+aws-account-id: ## Show AWS Account ID
+	@aws sts get-caller-identity --query Account --output text
 
 aws-credentials: ## Show AWS credentials for S3 access
 	@tofu -chdir=$(INFRA_DIR) output -raw aws_access_key_id; echo
