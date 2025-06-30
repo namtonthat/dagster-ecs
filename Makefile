@@ -98,7 +98,7 @@ create: ## Create new DAG from template (usage: make create dag=my_pipeline)
 test: ## Run type checking, linting, and tests
 	@./scripts/test.sh
 
-security-check: infra-init ## Run security assertions for AWS credentials
+security-check: ## Run security assertions for AWS credentials
 	@./scripts/security-check.sh
 
 auth-generate: ## Generate htpasswd entry (usage: make auth-generate user=admin pass=secret)
