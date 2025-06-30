@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Install `opentofu`
+        uses: opentofu/setup-opentofu@v1
+
       - name: Run tests
         run: |
           python -m pytest dags/ --verbose || echo "No tests found, skipping"
@@ -116,17 +119,17 @@ jobs:
           # Install OpenTofu for URL retrieval
           curl -fsSL https://get.opentofu.org/install-opentofu.sh | sh
           sudo mv tofu /usr/local/bin/
-          
+
           # Initialize and get current Dagster URL
           cd infrastructure
           tofu init
           DAGSTER_URL=$(tofu output -raw load_balancer_url)
           cd ..
-          
+
           # Update README.md with current URL (both localhost and production references)
           sed -i "s|Open <http://localhost:3000>|Open <$DAGSTER_URL>|g" README.md
           sed -i "s|http://localhost:3000|$DAGSTER_URL|g" README.md
-          
+
           # Commit changes if URL changed
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"

@@ -1,4 +1,4 @@
 load_from:
   - python_file:
-      relative_path: dags/main/__init__.py
-      location_name: main
+      relative_path: dags/dagster_quickstart/defs/assets.py
+      location_name: dagster_quickstart
