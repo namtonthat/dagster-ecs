@@ -65,7 +65,10 @@
       "Bash(aws:*)",
       "Bash(terraform:*)",
       "Bash(python:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(uv lock:*)",
+      "Bash(nslookup:*)",
+      "Bash(ping:*)"
     ],
     "deny": []
   }

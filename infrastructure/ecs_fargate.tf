@@ -59,8 +59,8 @@ resource "aws_security_group" "ecs_tasks_fargate" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    from_port       = 80
-    to_port         = 80
+    from_port       = 3000
+    to_port         = 3000
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
@@ -112,7 +112,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
 
       portMappings = [
         {
-          containerPort = 80
+          containerPort = 3000
           protocol      = "tcp"
         }
       ]
@@ -382,7 +382,7 @@ resource "aws_ecs_service" "dagster_fargate" {
   load_balancer {
     target_group_arn = aws_lb_target_group.dagster.arn
     container_name   = "dagster-webserver"
-    container_port   = 80
+    container_port   = 3000
   }
 
   depends_on = [aws_lb_listener.dagster]
