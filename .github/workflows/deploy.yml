@@ -96,8 +96,25 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Check if image needs to be rebuilt
+        id: check-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Check if image with current commit SHA already exists in ECR
+          IMAGE_CHANGED="true"
+          if docker manifest inspect $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG > /dev/null 2>&1; then
+            echo "Image with tag $IMAGE_TAG already exists in ECR"
+            IMAGE_CHANGED="false"
+          else
+            echo "Image with tag $IMAGE_TAG does not exist in ECR - rebuild needed"
+          fi
+          echo "changed=$IMAGE_CHANGED" >> $GITHUB_OUTPUT
+
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
+        if: steps.check-image.outputs.changed == 'true'
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
@@ -111,7 +128,7 @@ jobs:
           else
             echo "No existing image found in ECR, building without cache"
           fi
-          
+
           # Build with cache if available
           docker build --target production -f docker/Dockerfile $CACHE_FROM_ARG -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -120,6 +137,7 @@ jobs:
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Deploy to Amazon ECS
+        if: steps.check-image.outputs.changed == 'true'
         run: |
           aws ecs update-service \
             --cluster $ECS_CLUSTER \
@@ -127,35 +145,8 @@ jobs:
             --force-new-deployment
 
       - name: Wait for deployment
+        if: steps.check-image.outputs.changed == 'true'
         run: |
           aws ecs wait services-stable \
             --cluster $ECS_CLUSTER \
             --services $ECS_SERVICE
-
-      - name: Update README with live Dagster URL
-        run: |
-          # Install OpenTofu for URL retrieval
-          curl -fsSL https://get.opentofu.org/install-opentofu.sh | sh
-          sudo mv tofu /usr/local/bin/
-
-          # Initialize and get current Dagster URL
-          cd infrastructure
-          tofu init -backend-config=backend.hcl
-          DAGSTER_URL=$(tofu output -raw load_balancer_url)
-          cd ..
-
-          # Update README.md with current URL (both localhost and production references)
-          sed -i "s|Open <http://localhost:3000>|Open <$DAGSTER_URL>|g" README.md
-          sed -i "s|http://localhost:3000|$DAGSTER_URL|g" README.md
-
-          # Commit changes if URL changed
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add README.md
-          if git diff --staged --quiet; then
-            echo "No changes to README.md"
-          else
-            git commit -m "docs: update live Dagster URL to $DAGSTER_URL [skip ci]"
-            git push
-            echo "✅ README.md updated with live URL: $DAGSTER_URL"
-          fi

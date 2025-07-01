@@ -1,4 +1,4 @@
-.PHONY: help install start stop logs reset build-local build push deploy-dags deploy-workspace deploy-all deploy ecs-logs infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show aws-url aws-account-id aws-credentials
+.PHONY: help install start stop logs reset build-local build push deploy-dags deploy-workspace deploy-all deploy ecs-logs ecs-status infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show aws-url aws-account-id aws-credentials
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
@@ -66,6 +66,14 @@ deploy-ecs: ## Deploy latest images to ECS Fargate
 ecs-logs: ## View ECS Fargate logs
 	@echo "Viewing ECS Fargate logs..."
 	aws logs tail /ecs/dagster-ecs-fargate --follow
+
+ecs-status: ## Check ECS cluster and service status
+	@echo "Checking ECS cluster status..."
+	@echo "=== Cluster Status ==="
+	@aws ecs describe-clusters --clusters dagster-ecs-fargate-cluster --query 'clusters[0].{Name:clusterName,Status:status,ActiveTasks:runningTasksCount,PendingTasks:pendingTasksCount,Services:activeServicesCount}' --output table
+	@echo
+	@echo "=== Service Status ==="
+	@aws ecs describe-services --cluster dagster-ecs-fargate-cluster --services dagster-ecs-fargate-service --query 'services[0].{Name:serviceName,Status:status,Desired:desiredCount,Running:runningCount,Pending:pendingCount,TaskDefinition:taskDefinition}' --output table
 
 ##@ Infrastructure
 
