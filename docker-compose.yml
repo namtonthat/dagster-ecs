@@ -35,11 +35,11 @@ services:
       DAGSTER_POSTGRES_HOST: postgres
       DAGSTER_POSTGRES_PORT: 5432
       DAGSTER_HOME: /app/.dagster_home
-      DAGSTER_S3_BUCKET: ${DAGSTER_S3_BUCKET:-}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-ap-southeast-2}
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
     volumes:
+      - ./dags:/app/dags
+      - ./workspace.yaml:/app/workspace.yaml
       - ./docker/dagster-local.yaml:/app/.dagster_home/dagster.yaml
       - ./.dagster_home:/app/.dagster_home
     depends_on:
@@ -65,11 +65,11 @@ services:
       DAGSTER_POSTGRES_HOST: postgres
       DAGSTER_POSTGRES_PORT: 5432
       DAGSTER_HOME: /app/.dagster_home
-      DAGSTER_S3_BUCKET: ${DAGSTER_S3_BUCKET:-}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-ap-southeast-2}
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
     volumes:
+      - ./dags:/app/dags
+      - ./workspace.yaml:/app/workspace.yaml
       - ./docker/dagster-local.yaml:/app/.dagster_home/dagster.yaml
       - ./.dagster_home:/app/.dagster_home
     depends_on:

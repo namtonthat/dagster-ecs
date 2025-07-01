@@ -1,4 +1,4 @@
-.PHONY: help install start stop logs reset build-local build push deploy-dags deploy-workspace deploy-all deploy ecs-logs infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show url aws-account-id aws-credentials
+.PHONY: help install start stop logs reset build-local build push deploy-dags deploy-workspace deploy-all deploy ecs-logs infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show aws-url aws-account-id aws-credentials
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
@@ -51,18 +51,13 @@ push: ## Push images to ECR
 deploy-dags: ## Deploy dags to AWS S3
 	@echo "Deploying DAGs to S3..."
 	./scripts/deploy-dags.sh
-
-deploy-workspace: ## Deploy workspace.yaml to AWS S3
 	@echo "Deploying workspace.yaml to S3..."
 	./scripts/deploy-workspace.sh
 
-deploy-all: ## Deploy DAGs and workspace to S3, then restart ECS service
+deploy-all: deploy-ecs deploy-dags ## Deploy DAGs and workspace to S3, then restart ECS service
 	@echo "Deploying all files and restarting ECS service..."
-	./scripts/deploy-dags.sh
-	./scripts/deploy-workspace.sh
-	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
 
-deploy: ## Deploy latest images to ECS Fargate
+deploy-ecs: ## Deploy latest images to ECS Fargate
 	@echo "Deploying to ECS Fargate..."
 	@echo "Note: This requires ECS cluster to be created via infrastructure"
 	aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --force-new-deployment
@@ -108,7 +103,7 @@ auth-show: ## Show current authentication configuration
 
 ##@ AWS Related Information
 
-url: ## Show Dagster web UI URL
+aws-url: ## Show Dagster web UI URL
 	@echo "Fetching Dagster web UI URL..."
 	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url
 
