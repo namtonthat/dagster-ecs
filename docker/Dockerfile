@@ -48,7 +48,7 @@ FROM base AS production
 COPY dagster/workspace-production.yaml ./workspace.yaml
 COPY dagster/dagster-production.yaml ./.dagster_home/dagster.yaml
 
-CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
+CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
 
 # Local development stage - lightweight without cloud dependencies
 FROM base AS local
@@ -58,4 +58,4 @@ COPY dagster/workspace-local.yaml ./workspace.yaml
 COPY dagster/dagster-local.yaml ./.dagster_home/dagster.yaml
 
 # Simple command that runs dagster directly (passed to entrypoint)
-CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
+CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
