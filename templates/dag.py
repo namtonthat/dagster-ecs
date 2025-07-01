@@ -7,8 +7,6 @@ from typing import Any
 
 from dagster import AssetMaterialization, Definitions, asset, job
 
-from dags.main.resources import get_repository_resources
-
 # TODO: Replace 'template' with your DAG name
 REPOSITORY_NAME = "template"
 
@@ -37,10 +35,7 @@ def template_processed_data(template_input_data: dict[str, Any]) -> dict[str, An
     records = template_input_data["records"]
 
     # Example processing
-    processed = [
-        {**record, "processed": True, "length": len(record["value"])}
-        for record in records
-    ]
+    processed = [{**record, "processed": True, "length": len(record["value"])} for record in records]
 
     return {"processed_records": processed}
 
@@ -84,5 +79,4 @@ def template_pipeline():
 defs = Definitions(
     assets=[template_input_data, template_processed_data, template_output_data],
     jobs=[template_pipeline],
-    resources=get_repository_resources(REPOSITORY_NAME),
 )

@@ -1,7 +1,8 @@
 from pathlib import Path
 
-import dagster as dg
 import pandas as pd
+
+import dagster as dg
 
 # Use relative paths from the working directory
 base_path = Path("dags/dagster_quickstart/defs/data")
