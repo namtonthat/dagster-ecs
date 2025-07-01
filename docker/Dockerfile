@@ -48,8 +48,8 @@ EXPOSE 3000
 FROM base AS production
 
 # Copy workspace and instance configuration
-COPY docker/workspace-production.yaml ./workspace.yaml
-COPY docker/dagster-production.yaml ./.dagster_home/dagster.yaml
+COPY dagster/workspace-production.yaml ./workspace.yaml
+COPY dagster/dagster-production.yaml ./.dagster_home/dagster.yaml
 
 # # Copy nginx configuration
 # COPY docker/nginx.conf /etc/nginx/sites-available/default
@@ -75,8 +75,8 @@ CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", 
 FROM base AS local
 
 # Copy workspace and instance configuration
-COPY docker/workspace-local.yaml ./workspace.yaml
-COPY docker/dagster-local.yaml ./.dagster_home/dagster.yaml
+COPY dagster/workspace-local.yaml ./workspace.yaml
+COPY dagster/dagster-local.yaml ./.dagster_home/dagster.yaml
 
 
 # Use same entrypoint as production for S3 sync consistency
