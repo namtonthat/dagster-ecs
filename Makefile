@@ -55,7 +55,7 @@ deploy-dags: ## Deploy dags to AWS S3
 	@echo "Deploying workspace.yaml to S3..."
 	./scripts/deploy-workspace.sh
 
-deploy-all: deploy-ecs deploy-dags ## Deploy DAGs and workspace to S3, then restart ECS service
+deploy-all: deploy-dags deploy-ecs ## Deploy DAGs and workspace to S3, then restart ECS service
 	@echo "Deploying all files and restarting ECS service..."
 
 deploy-ecs: ## Deploy latest images to ECS Fargate
