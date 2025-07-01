@@ -9,7 +9,7 @@ uv run ty check
 
 echo "Running linting..."
 uv run ruff check --fix .
-ur run ruff format .
+uv run ruff format .
 
 # echo "Running tests..."
 # pytest
