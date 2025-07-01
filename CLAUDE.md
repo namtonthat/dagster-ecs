@@ -141,10 +141,12 @@ Key differences:
 │           ├── assets.py   # Sample assets
 │           └── data/       # Sample data files
 ├── dagster/                # Dagster configuration files
+│   ├── __init__.py         # Module initialization
 │   ├── dagster-local.yaml  # Local development config
 │   ├── dagster-production.yaml # Production config
 │   ├── workspace-local.yaml     # Local workspace config
-│   └── workspace-production.yaml # Production workspace config
+│   ├── workspace-production.yaml # Production workspace config
+│   └── workspace_loader.py      # Dynamic DAG discovery module
 ├── infrastructure/         # OpenTofu configuration files
 │   ├── main.tf            # Main configuration
 │   ├── vpc.tf             # VPC and networking
@@ -186,6 +188,28 @@ Key differences:
 ├── uv.lock               # UV lockfile
 └── README.md             # Project documentation
 ```
+
+## Dynamic DAG Loading
+
+The production deployment now supports automatic DAG discovery. Instead of manually listing each DAG file in the workspace configuration, the system automatically discovers all valid Dagster Definitions in the `/app/dags/` directory.
+
+### How it works:
+1. **Automatic Discovery**: The `workspace_loader.py` module scans the entire `/app/dags/` directory recursively
+2. **Dynamic Import**: Each Python file containing a `Definitions` object is automatically imported
+3. **Location Naming**: DAG locations are named based on their file path (e.g., `team-marketing/email_campaign.py` becomes `team_marketing_email_campaign`)
+4. **Error Resilience**: If one DAG file has errors, others still load successfully
+
+### Benefits:
+- **No Manual Updates**: Teams can deploy new DAGs without updating workspace configuration
+- **Team Isolation**: Each team can manage their own subdirectory (e.g., `/dags/team-marketing/`)
+- **Simplified Deployment**: Just sync DAG files to S3 and restart the service
+- **Better Scalability**: Supports unlimited number of DAGs without configuration changes
+
+### DAG File Requirements:
+- Must be a Python file (`.py` extension)
+- Must contain at least one `Definitions` object
+- Should not be named `__init__.py` or start with underscore
+- Can be nested in any subdirectory under `/app/dags/`
 
 ## Key Implementation Notes
 
