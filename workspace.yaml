@@ -1,9 +1,0 @@
-# Dagster Workspace Configuration
-#
-# This file defines the code locations that Dagster will load.
-# For local development, it points to the local DAG files.
-
-load_from:
-  - python_file:
-      relative_path: dags/dagster_quickstart/defs/assets.py
-      location_name: dagster_quickstart

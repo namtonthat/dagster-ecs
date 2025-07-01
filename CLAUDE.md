@@ -140,13 +140,14 @@ Key differences:
 │       └── defs/
 │           ├── assets.py   # Sample assets
 │           └── data/       # Sample data files
-├── dagster/                # Dagster configuration files
+├── dagster_config/         # Dagster configuration files
 │   ├── __init__.py         # Module initialization
 │   ├── dagster-local.yaml  # Local development config
 │   ├── dagster-production.yaml # Production config
 │   ├── workspace-local.yaml     # Local workspace config
 │   ├── workspace-production.yaml # Production workspace config
-│   └── workspace_loader.py      # Dynamic DAG discovery module
+│   ├── auto_discover.py         # Dynamic DAG discovery module (production)
+│   └── auto_discover_local.py   # Dynamic DAG discovery module (local)
 ├── infrastructure/         # OpenTofu configuration files
 │   ├── main.tf            # Main configuration
 │   ├── vpc.tf             # VPC and networking
@@ -162,15 +163,13 @@ Key differences:
 │   └── terraform.tfvars*  # Variable values
 ├── docker/                # Docker configuration
 │   ├── Dockerfile         # Multi-stage container build
-│   ├── entrypoint.sh      # Container entrypoint script
-│   ├── sync-from-s3.sh    # S3 sync script
+│   ├── multi-repo-entrypoint.sh # Multi-repository S3 sync entrypoint
 │   ├── generate-htpasswd.sh # Auth generation script
 │   ├── nginx.conf         # Nginx configuration
 │   └── supervisord.conf   # Supervisor configuration
 ├── scripts/               # Automation scripts
 │   ├── create-dag.sh      # DAG creation script
 │   ├── deploy-dags.sh     # DAG deployment script
-│   ├── deploy-workspace.sh # Workspace deployment script
 │   ├── manage-auth.sh     # Authentication management
 │   ├── push.sh            # ECR push script
 │   └── test.sh            # Testing script
@@ -182,7 +181,6 @@ Key differences:
 ├── .github/workflows/     # CI/CD pipeline
 │   └── deploy.yml         # GitHub Actions deployment
 ├── docker-compose.yml     # Local development environment
-├── workspace.yaml         # Dagster workspace configuration
 ├── Makefile              # Command abstractions
 ├── pyproject.toml        # Python dependencies and project config
 ├── uv.lock               # UV lockfile
@@ -194,22 +192,24 @@ Key differences:
 The production deployment now supports automatic DAG discovery. Instead of manually listing each DAG file in the workspace configuration, the system automatically discovers all valid Dagster Definitions in the `/app/dags/` directory.
 
 ### How it works:
-1. **Automatic Discovery**: The `workspace_loader.py` module scans the entire `/app/dags/` directory recursively
-2. **Dynamic Import**: Each Python file containing a `Definitions` object is automatically imported
-3. **Location Naming**: DAG locations are named based on their file path (e.g., `team-marketing/email_campaign.py` becomes `team_marketing_email_campaign`)
+1. **Automatic Discovery**: The `auto_discover.py` module scans the entire `/app/dags/` directory recursively
+2. **Dynamic Import**: Each Python file containing valid Dagster assets is automatically imported
+3. **Asset Grouping**: Assets are automatically grouped by their folder structure (e.g., files in `team-marketing/` folder are grouped as "team_marketing")
 4. **Error Resilience**: If one DAG file has errors, others still load successfully
 
 ### Benefits:
 - **No Manual Updates**: Teams can deploy new DAGs without updating workspace configuration
 - **Team Isolation**: Each team can manage their own subdirectory (e.g., `/dags/team-marketing/`)
+- **Automatic Grouping**: Assets are organized by folder structure in the Dagster UI
 - **Simplified Deployment**: Just sync DAG files to S3 and restart the service
 - **Better Scalability**: Supports unlimited number of DAGs without configuration changes
 
 ### DAG File Requirements:
 - Must be a Python file (`.py` extension)
-- Must contain at least one `Definitions` object
+- Must contain Dagster assets (functions decorated with `@asset`)
 - Should not be named `__init__.py` or start with underscore
 - Can be nested in any subdirectory under `/app/dags/`
+- Assets in the same folder will be grouped together in the UI
 
 ## Key Implementation Notes
 

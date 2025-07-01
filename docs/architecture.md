@@ -88,25 +88,25 @@ sequenceDiagram
     Dev->>S3: 1. Upload DAG files<br/>make deploy-dags
     S3->>S3: 2. Files stored in /dags/
     
-    loop Every 10 minutes
-        ECS->>S3: 3. aws s3 sync (timeout 30s)
+    loop Every 5 minutes
+        ECS->>S3: 3. aws s3 sync (timeout 120s)
         S3->>ECS: 4. Download new/changed files
         ECS->>ECS: 5. Update local /app/dags/
     end
     
-    ECS->>Dagster: 6. Dagster auto-detects changes
-    Dagster->>Dagster: 7. Reload DAG definitions
+    ECS->>Dagster: 6. auto_discover.py loads all assets
+    Dagster->>Dagster: 7. Groups assets by folder
     
     Dev->>Dagster: 8. View updated DAGs
 ```
 
 ### Container Sync Process
 
-1. **Initial Sync**: On container startup, sync DAGs and workspace from S3
-2. **Periodic Sync**: Background process syncs every 10 minutes
+1. **Initial Sync**: On container startup, sync DAGs from S3
+2. **Periodic Sync**: Background process syncs every 5 minutes (configurable)
 3. **Error Handling**: Detailed logging and failure detection
 4. **Credential Validation**: Tests AWS credentials before sync
-5. **Local Fallback**: Uses local files when S3 sync is disabled
+5. **Dynamic Discovery**: Auto-discover.py automatically loads all DAGs
 
 ## 🌐 Network Architecture
 
@@ -232,9 +232,9 @@ graph TD
     START[Container Start] --> AUTH[Setup Basic Auth]
     AUTH --> CREDS[Test AWS Credentials]
     CREDS --> S3TEST[Test S3 Bucket Access]
-    S3TEST --> SYNC[Sync DAGs & Workspace from S3<br/>timeout 30s]
-    SYNC --> PERMSYNC[Start Periodic Sync<br/>Every 10 minutes]
-    PERMSYNC --> DAGSTER[Start Dagster Services]
+    S3TEST --> SYNC[Sync DAGs from S3<br/>timeout 120s]
+    SYNC --> PERMSYNC[Start Periodic Sync<br/>Every 5 minutes]
+    PERMSYNC --> DAGSTER[Start Dagster Services<br/>with auto_discover.py]
     DAGSTER --> HEALTH[Health Check Endpoint<br/>/health]
     HEALTH --> READY[Service Ready]
     
@@ -254,18 +254,22 @@ graph TD
 ## 📁 Project Structure
 
 ```
-├── infrastructure/        # OpenTofu configuration files
-├── docker/               # Docker configuration & scripts
-│   ├── Dockerfile        # Multi-stage build (local + production)
-│   ├── entrypoint.sh     # S3 sync & startup script
-│   ├── supervisord.conf  # Process management
-│   └── nginx.conf        # Reverse proxy configuration
-├── dags/                 # Local DAG files (synced to S3)
-├── scripts/              # Automation scripts
-├── docs/                 # Architecture documentation
-├── docker-compose.yml    # Local development environment
-├── workspace.yaml        # Dagster workspace configuration
-└── Makefile             # Command abstractions
+├── infrastructure/       # OpenTofu configuration files
+├── docker/              # Docker configuration & scripts
+│   ├── Dockerfile       # Multi-stage build (local + production)
+│   ├── multi-repo-entrypoint.sh  # Multi-repo S3 sync script
+│   ├── supervisord.conf # Process management
+│   └── nginx.conf       # Reverse proxy configuration
+├── dagster_config/      # Dagster configuration
+│   ├── auto_discover.py # Dynamic DAG discovery (production)
+│   ├── auto_discover_local.py # Dynamic DAG discovery (local)
+│   ├── workspace-*.yaml # Minimal workspace configs
+│   └── dagster-*.yaml   # Dagster instance configs
+├── dags/                # Local DAG files (synced to S3)
+├── scripts/             # Automation scripts
+├── docs/                # Architecture documentation
+├── docker-compose.yml   # Local development environment
+└── Makefile            # Command abstractions
 ```
 
 This architecture provides a robust, cost-effective, and scalable foundation for data orchestration workloads with the flexibility to handle both development and production requirements.

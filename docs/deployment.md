@@ -14,10 +14,7 @@ For pipeline changes without infrastructure modifications:
 # Deploy DAG files to S3 (no Docker rebuild)
 make deploy-dags
 
-# Deploy workspace configuration
-make deploy-workspace
-
-# Deploy both DAGs and workspace
+# Deploy DAGs and restart ECS service
 make deploy-all
 ```
 
@@ -51,7 +48,8 @@ make deploy        # Deploy to ECS
    ```bash
    make build         # Build Docker image
    make push          # Push to ECR
-   make deploy-all    # Deploy DAGs and containers
+   make deploy-dags   # Deploy DAGs to S3
+   make deploy-ecs    # Deploy containers to ECS
    ```
 
 3. **Verify Deployment**

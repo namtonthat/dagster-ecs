@@ -20,7 +20,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  uv sync --locked --no-install-project --no-editable
+  uv sync --frozen --no-install-project
 
 # Create dagster home directory
 RUN mkdir -p /app/.dagster_home /app/dags
@@ -45,12 +45,12 @@ EXPOSE 3000
 FROM base AS production
 
 # Copy workspace and instance configuration
-COPY dagster/workspace-production.yaml ./workspace.yaml
-COPY dagster/dagster-production.yaml ./.dagster_home/dagster.yaml
+COPY dagster_config/workspace-production.yaml ./workspace.yaml
+COPY dagster_config/dagster-production.yaml ./.dagster_home/dagster.yaml
 
-# Copy the dynamic workspace loader and create __init__.py for proper module import
-COPY dagster/workspace_loader.py ./dagster/workspace_loader.py
-COPY dagster/__init__.py ./dagster/__init__.py
+# Copy the dynamic workspace loader and auto-discovery modules
+COPY dagster_config/auto_discover.py ./dagster_config/auto_discover.py
+COPY dagster_config/__init__.py ./dagster_config/__init__.py
 
 # Use multi-repo S3 entrypoint - supports multiple repositories
 ENTRYPOINT ["/app/multi-repo-entrypoint.sh"]
@@ -60,12 +60,13 @@ CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "-
 FROM base AS local
 
 # Copy workspace and instance configuration
-COPY dagster/workspace-local.yaml ./workspace.yaml
-COPY dagster/dagster-local.yaml ./.dagster_home/dagster.yaml
+COPY dagster_config/workspace-local.yaml ./workspace.yaml
+COPY dagster_config/dagster-local.yaml ./.dagster_home/dagster.yaml
 
 # Copy the dynamic workspace loader for local development
-COPY dagster/workspace_loader_local.py ./dagster/workspace_loader_local.py
-COPY dagster/__init__.py ./dagster/__init__.py
+COPY dagster_config/auto_discover_local.py ./dagster_config/auto_discover_local.py
+COPY dagster_config/__init__.py ./dagster_config/__init__.py
 
-# Simple command that runs dagster directly (passed to entrypoint)
-CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
+# Simple command that runs dagster directly
+ENTRYPOINT ["uv", "run"]
+CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]

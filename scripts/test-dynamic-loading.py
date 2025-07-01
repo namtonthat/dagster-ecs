@@ -9,38 +9,33 @@ from pathlib import Path
 # Add the parent directory to Python path so we can import dagster module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Mock the /app/dags path to use local dags directory
-from dagster import workspace_loader
+# Test the workspace loader with local directory
+from dagster_config.workspace_loader import load_assets_from_file
 
-workspace_loader.dags_dir = Path(__file__).parent.parent / "dags"
+dags_dir = Path(__file__).parent.parent / "dags"
 
-# Re-run the discovery process with local path
 print("Discovering DAGs in local directory...")
-print(f"Looking in: {workspace_loader.dags_dir}")
+print(f"Looking in: {dags_dir}")
 print("-" * 60)
 
-# Clear any previously loaded DAGs
-for key in list(workspace_loader.__dict__.keys()):
-    if isinstance(workspace_loader.__dict__.get(key), workspace_loader.Definitions):
-        del workspace_loader.__dict__[key]
+all_assets = []
+loaded_files = []
 
-# Re-discover DAGs
-if workspace_loader.dags_dir.exists():
-    for dag_file in workspace_loader.dags_dir.rglob("*.py"):
+if dags_dir.exists():
+    for dag_file in sorted(dags_dir.rglob("*.py")):
+        # Skip __init__.py and other non-DAG files
         if dag_file.name == "__init__.py" or dag_file.name.startswith("_"):
             continue
 
-        result = workspace_loader.find_definitions_in_file(dag_file)
-        if result:
-            location_name, definitions = result
-            setattr(workspace_loader, location_name, definitions)
-            print(f"✓ Loaded DAG: {location_name}")
-            print(f"  File: {dag_file}")
-            print(f"  Assets: {[asset.key for asset in definitions.assets]}")
+        assets = load_assets_from_file(dag_file)
+        if assets:
+            all_assets.extend(assets)
+            loaded_files.append(dag_file)
+            print(f"✓ Loaded {len(assets)} assets from {dag_file.relative_to(dags_dir)}")
+            print(f"  Asset keys: {[asset.key for asset in assets]}")
             print()
 
-# List all loaded DAGs
-loaded_dags = workspace_loader.list_loaded_dags()
 print("-" * 60)
-print(f"Total DAGs loaded: {len(loaded_dags)}")
-print(f"DAG names: {loaded_dags}")
+print(f"Total files processed: {len(loaded_files)}")
+print(f"Total assets loaded: {len(all_assets)}")
+print(f"Loaded files: {[f.name for f in loaded_files]}")

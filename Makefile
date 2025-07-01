@@ -2,7 +2,7 @@
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
-target := local
+target := production
 
 # Default target - dynamically generate help from target comments
 help: ## Show this help message

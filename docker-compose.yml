@@ -40,8 +40,7 @@ services:
       DAGSTER_DOCKER_IMAGE: dagster-ecs-dagster-webserver
     volumes:
       - ./dags:/app/dags
-      - ./workspace.yaml:/app/workspace.yaml
-      - ./dagster/dagster-local.yaml:/app/.dagster_home/dagster.yaml
+      - ./dagster_config:/app/dagster_config
       - ./.dagster_home:/app/.dagster_home
     depends_on:
       postgres:
@@ -71,8 +70,7 @@ services:
       DAGSTER_DOCKER_IMAGE: dagster-ecs-dagster-webserver
     volumes:
       - ./dags:/app/dags
-      - ./workspace.yaml:/app/workspace.yaml
-      - ./dagster/dagster-local.yaml:/app/.dagster_home/dagster.yaml
+      - ./dagster_config:/app/dagster_config
       - ./.dagster_home:/app/.dagster_home
     depends_on:
       postgres:
