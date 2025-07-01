@@ -51,14 +51,12 @@ push: ## Build production image and push to ECR
 	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
 	@./scripts/push.sh
 
-deploy-dags: ## Deploy dags to AWS S3
+deploy-dags: ## Deploy DAGs to S3
 	@echo "Deploying DAGs to S3..."
 	./scripts/deploy-dags.sh
-	@echo "Deploying workspace.yaml to S3..."
-	./scripts/deploy-workspace.sh
 
-deploy-all: deploy-ecs deploy-dags ## Deploy DAGs and workspace to S3, then restart ECS service
-	@echo "Deploying all files and restarting ECS service..."
+deploy-all: deploy-dags deploy-ecs ## Deploy DAGs to S3, then restart ECS service
+	@echo "Deploying DAGs and restarting ECS service..."
 
 deploy-ecs: ## Deploy latest images to ECS Fargate
 	@echo "Deploying to ECS Fargate..."

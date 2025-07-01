@@ -26,6 +26,7 @@ Modern data orchestration platform deployed on AWS ECS Fargate with **dynamic DA
 
 ## 🏗️ Key Features
 
+- **Dynamic DAG Discovery**: Automatically discovers all DAGs in `/app/dags/` - no manual configuration needed
 - **Dynamic S3 Loading**: DAG changes deploy in 60 seconds without container rebuilds
 - **Cost Optimized**: ARM64 + AWS Free Tier (~$20-25/month)
 - **Production Ready**: Auto-scaling, high availability, comprehensive monitoring

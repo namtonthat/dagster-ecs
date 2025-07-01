@@ -64,7 +64,7 @@ if [ $? -eq 0 ]; then
     
     echo ""
     echo "🔄 To trigger DAG reload in ECS, run:"
-    echo "   make deploy  # This will restart ECS service to pick up new DAGs"
+    echo "   make deploy-ecs  # This will restart ECS service to pick up new DAGs"
 else
     echo "❌ Failed to deploy DAGs to S3"
     exit 1

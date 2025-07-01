@@ -105,7 +105,7 @@ make infra-destroy # Destroy infrastructure
 # Application deployment
 make build         # Build and tag Docker images (default: production target)
 make push          # Push images to ECR
-make deploy-dags   # Deploy DAG files and workspace to S3
+make deploy-dags   # Deploy DAG files to S3
 make deploy-ecs    # Deploy latest images to ECS Fargate
 make deploy-all    # Deploy DAGs to S3 AND restart ECS service
 make ecs-logs      # View ECS Fargate logs
