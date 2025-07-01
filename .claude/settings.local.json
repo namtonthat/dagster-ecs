@@ -69,7 +69,8 @@
       "Bash(uv lock:*)",
       "Bash(nslookup:*)",
       "Bash(ping:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "WebFetch(domain:dagster-ecs-alb-1547382701.ap-southeast-2.elb.amazonaws.com)"
     ],
     "deny": []
   }
