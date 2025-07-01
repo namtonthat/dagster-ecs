@@ -258,8 +258,8 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
       name  = "dagster-daemon"
       image = "${aws_ecr_repository.dagster.repository_url}:latest"
 
-      # Override the default command to run daemon
-      command = ["uv", "run", "dagster-daemon", "run"]
+      # Override the default command to run daemon (multi-repo entrypoint will sync DAGs first)
+      command = ["/app/multi-repo-entrypoint.sh", "uv", "run", "dagster-daemon", "run"]
 
       mountPoints = [
         {

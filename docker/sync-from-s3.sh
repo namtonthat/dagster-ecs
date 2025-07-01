@@ -17,12 +17,18 @@ sync_from_s3() {
     
     # Sync DAGs from S3 (with timeout and error handling)
     echo "$(date): Syncing DAGs..."
-    if timeout 30 aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps --quiet; then
+    if timeout 60 aws s3 sync "s3://$DAGSTER_S3_BUCKET/dags/" /app/dags/ --delete --exact-timestamps; then
         echo "$(date): DAG sync successful"
         DAG_COUNT=$(find /app/dags -name "*.py" -type f | wc -l)
         echo "$(date): Found $DAG_COUNT Python files in /app/dags/"
+        
+        # Ensure proper permissions
+        chmod -R 755 /app/dags/
+        
+        return 0
     else
-        echo "$(date): WARNING: DAG sync failed, keeping existing files"
+        echo "$(date): ERROR: DAG sync failed"
+        return 1
     fi
     
     # Sync workspace.yaml from S3

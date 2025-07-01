@@ -34,9 +34,9 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
   && ./aws/install \
   && rm -rf awscliv2.zip aws
 
-# # Copy sync scripts 
-COPY docker/sync-from-s3.sh ./sync-from-s3.sh
-RUN chmod +x ./sync-from-s3.sh
+# Copy multi-repo S3 entrypoint
+COPY docker/multi-repo-entrypoint.sh ./multi-repo-entrypoint.sh
+RUN chmod +x ./multi-repo-entrypoint.sh
 
 # Expose dagster port directly
 EXPOSE 3000
@@ -48,6 +48,8 @@ FROM base AS production
 COPY dagster/workspace-production.yaml ./workspace.yaml
 COPY dagster/dagster-production.yaml ./.dagster_home/dagster.yaml
 
+# Use multi-repo S3 entrypoint - supports multiple repositories
+ENTRYPOINT ["/app/multi-repo-entrypoint.sh"]
 CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
 
 # Local development stage - lightweight without cloud dependencies
