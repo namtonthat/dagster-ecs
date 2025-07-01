@@ -13,15 +13,14 @@ RUN apt-get update && apt-get install -y \
   build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-# Install uv using the installer script (architecture-agnostic)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:${PATH}"
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy requirements and install Python dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  uv sync --frozen --no-install-project
+  uv sync --locked --no-install-project --no-editable
 
 # Create dagster home directory
 RUN mkdir -p /app/.dagster_home /app/dags

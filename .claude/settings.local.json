@@ -68,7 +68,8 @@
       "Bash(true)",
       "Bash(uv lock:*)",
       "Bash(nslookup:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }
