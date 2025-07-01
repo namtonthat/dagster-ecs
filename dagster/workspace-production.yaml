@@ -7,4 +7,6 @@
 # and they will be automatically discovered and loaded
 
 load_from:
-  - python_module: dagster.workspace_loader
+  - python_module: 
+      module_name: workspace_loader
+      working_directory: /app/dagster

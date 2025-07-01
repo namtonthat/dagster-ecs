@@ -1,13 +1,12 @@
 # Dagster Workspace Configuration for Local Development
 #
-# This file defines the code locations that Dagster will load in local development.
-# It points to the local DAG files for development and testing.
+# Dynamic DAG loading from local dags/ directory
+# Automatically discovers all DAG files in dags/
 #
-# Note: In local development, this file is mounted directly from the filesystem.
-# In production, the workspace.yaml is synced from S3 and may contain different
-# or additional code locations.
+# Just add new Python files with Definitions objects to dags/
+# and they will be automatically discovered
 
 load_from:
-  - python_file:
-      relative_path: dags/dagster_quickstart/defs/assets.py
-      location_name: dagster_quickstart
+  - python_module: 
+      module_name: workspace_loader_local
+      working_directory: /app/dagster

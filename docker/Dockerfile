@@ -48,8 +48,9 @@ FROM base AS production
 COPY dagster/workspace-production.yaml ./workspace.yaml
 COPY dagster/dagster-production.yaml ./.dagster_home/dagster.yaml
 
-# Copy the dynamic workspace loader
+# Copy the dynamic workspace loader and create __init__.py for proper module import
 COPY dagster/workspace_loader.py ./dagster/workspace_loader.py
+COPY dagster/__init__.py ./dagster/__init__.py
 
 # Use multi-repo S3 entrypoint - supports multiple repositories
 ENTRYPOINT ["/app/multi-repo-entrypoint.sh"]
@@ -61,6 +62,10 @@ FROM base AS local
 # Copy workspace and instance configuration
 COPY dagster/workspace-local.yaml ./workspace.yaml
 COPY dagster/dagster-local.yaml ./.dagster_home/dagster.yaml
+
+# Copy the dynamic workspace loader for local development
+COPY dagster/workspace_loader_local.py ./dagster/workspace_loader_local.py
+COPY dagster/__init__.py ./dagster/__init__.py
 
 # Simple command that runs dagster directly (passed to entrypoint)
 CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
