@@ -1,6 +1,0 @@
-# Dagster Workspace Configuration for Local Development
-#
-# Auto-discovers all DAGs from local dags/ directory
-
-load_from:
-  - python_module: dagster_config.auto_discover_local

@@ -22,16 +22,17 @@ This repository contains a Dagster deployment configuration for AWS ECS. The pro
 
 ## Architecture Goals
 
-Implement a minimal but production-ready Dagster deployment with dynamic DAG loading:
+Implement a minimal but production-ready Dagster deployment:
 - **Local Development**: Full Dagster stack running locally with Docker Compose
 - **Cloud Deployment**: Streamlined ECS deployment with minimal AWS resources
-- **Dynamic DAG Loading**: DAG files stored in S3 and synced dynamically to containers
+- **Static DAG Deployment**: DAGs built into Docker image for reliable deployment
 - **Cost-Optimized**: Designed for AWS Free Tier with automatic scaling
 - **Essential Components Only**:
-  - Dagster webserver (UI/API) with S3-synced DAGs
+  - Dagster webserver (UI/API)
   - Dagster daemon (orchestration)
   - PostgreSQL (RDS for cloud, local container for dev)
-  - S3 bucket for DAG files, assets, and logs
+  - S3 bucket for assets and logs
+  - EFS for shared state and workspace management
   - AWS Secrets Manager for secure credential management
   - Basic networking (VPC, subnets, security groups)
 
@@ -105,9 +106,7 @@ make infra-destroy # Destroy infrastructure
 # Application deployment
 make build         # Build and tag Docker images (default: production target)
 make push          # Push images to ECR
-make deploy-dags   # Deploy DAG files to S3
 make deploy-ecs    # Deploy latest images to ECS Fargate
-make deploy-all    # Deploy DAGs to S3 AND restart ECS service
 make ecs-logs      # View ECS Fargate logs
 
 # Information & credentials
@@ -144,8 +143,7 @@ Key differences:
 │   ├── __init__.py         # Module initialization
 │   ├── dagster-local.yaml  # Local development config
 │   ├── dagster-production.yaml # Production config
-│   ├── workspace-local.yaml     # Local workspace config
-│   ├── workspace-production.yaml # Production workspace config
+│   ├── workspace.yaml            # Static workspace config
 │   ├── auto_discover.py         # Dynamic DAG discovery module (production)
 │   └── auto_discover_local.py   # Dynamic DAG discovery module (local)
 ├── infrastructure/         # OpenTofu configuration files
@@ -186,29 +184,38 @@ Key differences:
 └── README.md             # Project documentation
 ```
 
-## Dynamic DAG Loading
+## Static DAG Deployment
 
-The production deployment now supports automatic DAG discovery. Instead of manually listing each DAG file in the workspace configuration, the system automatically discovers all valid Dagster Definitions in the `/app/dags/` directory.
+### Architecture
 
-### How it works:
-1. **Automatic Discovery**: The `auto_discover.py` module scans the entire `/app/dags/` directory recursively
-2. **Dynamic Import**: Each Python file containing valid Dagster assets is automatically imported
-3. **Asset Grouping**: Assets are automatically grouped by their folder structure (e.g., files in `team-marketing/` folder are grouped as "team_marketing")
-4. **Error Resilience**: If one DAG file has errors, others still load successfully
+The deployment uses static DAG configuration where all DAGs are built into the Docker image:
+- **Build-Time Inclusion**: DAGs are copied into the image during build
+- **Static Workspace**: `workspace.yaml` explicitly lists all DAG modules
+- **EFS for State**: Single EFS filesystem for shared state and logs
+- **Predictable Deployment**: No runtime surprises from dynamic loading
+
+### Workspace Configuration
+
+DAGs are configured in `dagster_config/workspace.yaml`:
+```yaml
+load_from:
+  - python_module: dags.team_analytics.pipeline
+  - python_module: dags.team_ml.training
+  - python_module: dags.team_data.ingestion
+```
+
+### Adding New DAGs
+
+1. Add your DAG files to the `dags/` directory
+2. Update `workspace.yaml` to include the new module
+3. Build and push the new Docker image
+4. Deploy to ECS
 
 ### Benefits:
-- **No Manual Updates**: Teams can deploy new DAGs without updating workspace configuration
-- **Team Isolation**: Each team can manage their own subdirectory (e.g., `/dags/team-marketing/`)
-- **Automatic Grouping**: Assets are organized by folder structure in the Dagster UI
-- **Simplified Deployment**: Just sync DAG files to S3 and restart the service
-- **Better Scalability**: Supports unlimited number of DAGs without configuration changes
-
-### DAG File Requirements:
-- Must be a Python file (`.py` extension)
-- Must contain Dagster assets (functions decorated with `@asset`)
-- Should not be named `__init__.py` or start with underscore
-- Can be nested in any subdirectory under `/app/dags/`
-- Assets in the same folder will be grouped together in the UI
+- **Reliability**: DAGs are versioned with the Docker image
+- **Security**: No runtime code loading from external sources
+- **Performance**: No startup delay for S3 sync
+- **Simplicity**: Standard Docker deployment pattern
 
 ## Key Implementation Notes
 
@@ -234,7 +241,8 @@ The production deployment now supports automatic DAG discovery. Instead of manua
 ### Infrastructure Components
 - **ECS Fargate**: Serverless container deployment
 - **RDS PostgreSQL**: Managed database service
-- **S3**: Object storage for assets and logs
+- **S3**: Object storage for assets and logs (supports multiple buckets)
+- **EFS**: Shared filesystem for all repositories (single mount)
 - **VPC**: Isolated network environment
 - **IAM**: Role-based access control
 - **CloudWatch**: Logging and monitoring

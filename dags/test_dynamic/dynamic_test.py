@@ -12,4 +12,4 @@ def dynamic_test_asset():
 
 
 # Define the DAG (code location)
-dynamic_test_defs = Definitions(assets=[dynamic_test_asset])
+defs = Definitions(assets=[dynamic_test_asset])

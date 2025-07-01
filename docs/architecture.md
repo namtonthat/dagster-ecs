@@ -75,51 +75,108 @@ graph TB
 | **EFS File System** | Burst mode, multi-AZ | Shared storage |
 | **ECR Repository** | ARM64 images | Container registry |
 
-## 🔄 Dynamic DAG Loading System
+## 📦 Static DAG Deployment
 
 ### Architecture Benefits
 
-**Traditional Approach:**
+**DAG Deployment Flow:**
 ```
 DAG Change → Docker Build → ECR Push → ECS Deploy → 5-10 minutes
 ```
 
-**Our Dynamic Loading:**
-```
-DAG Change → S3 Upload → Auto-Sync → 60 seconds
-```
-
-### S3 Sync Flow
+### Deployment Process
 
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
-    participant S3 as S3 Bucket
-    participant ECS as ECS Container
+    participant Docker as Docker Build
+    participant ECR as ECR Registry
+    participant ECS as ECS Service
     participant Dagster as Dagster UI
     
-    Dev->>S3: 1. Upload DAG files<br/>make deploy-dags
-    S3->>S3: 2. Files stored in /dags/
-    
-    loop Every 5 minutes
-        ECS->>S3: 3. aws s3 sync (timeout 120s)
-        S3->>ECS: 4. Download new/changed files
-        ECS->>ECS: 5. Update local /app/dags/
-    end
-    
-    ECS->>Dagster: 6. auto_discover.py loads all assets
-    Dagster->>Dagster: 7. Groups assets by folder
-    
-    Dev->>Dagster: 8. View updated DAGs
+    Dev->>Dev: 1. Update DAGs in dags/
+    Dev->>Dev: 2. Update workspace.yaml
+    Dev->>Docker: 3. make build
+    Docker->>Docker: 4. Copy DAGs into image
+    Docker->>ECR: 5. make push
+    ECR->>ECR: 6. Store new image
+    Dev->>ECS: 7. make deploy-ecs
+    ECS->>ECR: 8. Pull new image
+    ECS->>ECS: 9. Start new containers
+    ECS->>Dagster: 10. Load static workspace
+    Dev->>Dagster: 11. View updated DAGs
 ```
 
-### Container Sync Process
+### Benefits of Static Deployment
 
-1. **Initial Sync**: On container startup, sync DAGs from S3
-2. **Periodic Sync**: Background process syncs every 5 minutes (configurable)
-3. **Error Handling**: Detailed logging and failure detection
-4. **Credential Validation**: Tests AWS credentials before sync
-5. **Dynamic Discovery**: Auto-discover.py automatically loads all DAGs
+1. **Version Control**: DAGs are versioned with the Docker image
+2. **Rollback Capability**: Easy rollback to previous versions
+3. **Security**: No runtime code injection risks
+4. **Performance**: No startup delays for syncing
+5. **Reliability**: Predictable deployment behavior
+
+## 🏢 EFS Workspace Management
+
+### Overview
+
+The deployment uses a single EFS filesystem for shared state and workspace management. All DAGs are packaged in the Docker image for reliable deployment.
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph "Docker Image"
+        DI[Docker Image]
+        DAGs[DAGs Directory]
+        WS[workspace.yaml]
+    end
+    
+    subgraph "EFS Shared Storage"
+        EFS[EFS Workspace]
+        subgraph "/app/projects/"
+            LOGS[logs/]
+            STATE[state/]
+            CONFIG[config/]
+        end
+    end
+    
+    subgraph "ECS Containers"
+        WEB[Dagster Webserver]
+        D[Dagster Daemon]
+    end
+    
+    DI --> WEB
+    DI --> D
+    
+    EFS --> WEB
+    EFS --> D
+    
+    WEB -->|read workspace.yaml| WS
+    D -->|read workspace.yaml| WS
+```
+
+### Directory Structure
+
+```
+/app/                       # Container filesystem
+├── dags/                  # DAGs built into image
+│   ├── team_analytics/
+│   ├── team_ml/
+│   └── team_data/
+├── workspace.yaml         # Static configuration
+└── projects/              # EFS mount point
+    ├── logs/              # Shared logs
+    ├── state/             # Shared state
+    └── config/            # Shared config
+```
+
+### Benefits
+
+1. **Simplicity**: No complex sync mechanisms
+2. **Reliability**: DAGs always match Docker image version
+3. **Performance**: No startup delays
+4. **Security**: No external code loading
+5. **Shared State**: EFS provides persistent storage for logs and state
 
 ## 🌐 Network Architecture
 

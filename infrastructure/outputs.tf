@@ -37,8 +37,8 @@ output "efs_file_system_id" {
 }
 
 output "efs_dags_id" {
-  description = "EFS file system ID for DAGs (legacy)"
-  value       = aws_efs_file_system.dagster_dags.id
+  description = "EFS file system ID for DAGs (legacy - now uses workspace)"
+  value       = aws_efs_file_system.dagster_workspace.id
 }
 
 output "efs_workspace_projects_ap" {

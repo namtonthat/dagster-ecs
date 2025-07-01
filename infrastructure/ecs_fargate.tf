@@ -11,48 +11,7 @@ resource "aws_ecs_cluster" "dagster_fargate" {
   tags = local.tags
 }
 
-# EFS for DAGs storage (since Fargate doesn't support EBS)
-resource "aws_efs_file_system" "dagster_dags" {
-  creation_token = "${local.name_prefix}-dags"
-
-  performance_mode = "generalPurpose"
-  throughput_mode  = "bursting"
-
-  tags = merge(local.tags, {
-    Name = "${local.name_prefix}-dags-efs"
-  })
-}
-
-resource "aws_efs_mount_target" "dagster_dags" {
-  count = length(aws_subnet.public)
-
-  file_system_id  = aws_efs_file_system.dagster_dags.id
-  subnet_id       = aws_subnet.public[count.index].id
-  security_groups = [aws_security_group.efs.id]
-}
-
-resource "aws_security_group" "efs" {
-  name_prefix = "${local.name_prefix}-efs-"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_tasks_fargate.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(local.tags, {
-    Name = "${local.name_prefix}-efs-sg"
-  })
-}
+# EFS configuration moved to efs.tf - using single shared workspace EFS
 
 resource "aws_security_group" "ecs_tasks_fargate" {
   name_prefix = "${local.name_prefix}-ecs-tasks-fargate-"
@@ -96,11 +55,11 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
   task_role_arn      = aws_iam_role.ecs_task_fargate.arn
 
   volume {
-    name = "dagster-dags"
+    name = "dagster-workspace"
 
     efs_volume_configuration {
-      file_system_id     = aws_efs_file_system.dagster_dags.id
-      root_directory     = "/"
+      file_system_id     = aws_efs_file_system.dagster_workspace.id
+      access_point_id    = aws_efs_access_point.workspace_projects.id
       transit_encryption = "ENABLED"
     }
   }
@@ -117,13 +76,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
         }
       ]
 
-      mountPoints = [
-        {
-          sourceVolume  = "dagster-dags"
-          containerPath = "/app/dags"
-          readOnly      = false
-        }
-      ]
+      mountPoints = []
 
       environment = [
         {
@@ -145,10 +98,6 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
         {
           name  = "DAGSTER_POSTGRES_PASSWORD"
           value = var.db_password
-        },
-        {
-          name  = "DAGSTER_S3_BUCKET"
-          value = aws_s3_bucket.dagster.bucket
         },
         {
           name  = "AWS_DEFAULT_REGION"
@@ -184,7 +133,7 @@ resource "aws_ecs_task_definition" "dagster_fargate" {
         },
         {
           name  = "DAGSTER_EFS_FILE_SYSTEM_ID"
-          value = aws_efs_file_system.dagster_dags.id
+          value = aws_efs_file_system.dagster_workspace.id
         },
         {
           name  = "DAGSTER_ECS_LOG_GROUP"
@@ -244,11 +193,11 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
   task_role_arn      = aws_iam_role.ecs_task_fargate.arn
 
   volume {
-    name = "dagster-dags"
+    name = "dagster-workspace"
 
     efs_volume_configuration {
-      file_system_id     = aws_efs_file_system.dagster_dags.id
-      root_directory     = "/"
+      file_system_id     = aws_efs_file_system.dagster_workspace.id
+      access_point_id    = aws_efs_access_point.workspace_projects.id
       transit_encryption = "ENABLED"
     }
   }
@@ -258,16 +207,10 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
       name  = "dagster-daemon"
       image = "${aws_ecr_repository.dagster.repository_url}:latest"
 
-      # Override the default command to run daemon (multi-repo entrypoint will sync DAGs first)
-      command = ["/app/multi-repo-entrypoint.sh", "uv", "run", "dagster-daemon", "run"]
+      # Run daemon directly without S3 sync
+      command = ["uv", "run", "dagster-daemon", "run"]
 
-      mountPoints = [
-        {
-          sourceVolume  = "dagster-dags"
-          containerPath = "/app/dags"
-          readOnly      = false
-        }
-      ]
+      mountPoints = []
 
       environment = [
         {
@@ -289,10 +232,6 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
         {
           name  = "DAGSTER_POSTGRES_PASSWORD"
           value = var.db_password
-        },
-        {
-          name  = "DAGSTER_S3_BUCKET"
-          value = aws_s3_bucket.dagster.bucket
         },
         {
           name  = "AWS_DEFAULT_REGION"

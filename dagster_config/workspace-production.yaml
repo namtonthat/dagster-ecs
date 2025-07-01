@@ -1,7 +1,0 @@
-# Dagster Workspace Configuration for Production
-#
-# Auto-discovers all DAGs from /app/dags/ directory
-# DAGs are synced from S3 by the entrypoint script
-
-load_from:
-  - python_module: dagster_config.auto_discover

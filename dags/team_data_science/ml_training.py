@@ -30,4 +30,4 @@ def model_evaluation(model_training):
 
 
 # Define the DAG (code location)
-ml_training_defs = Definitions(assets=[training_data, feature_engineering, model_training, model_evaluation])
+defs = Definitions(assets=[training_data, feature_engineering, model_training, model_evaluation])

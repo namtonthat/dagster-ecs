@@ -7,7 +7,7 @@
 [![Dagster](https://img.shields.io/badge/Dagster-1.8+-orange.svg)](https://dagster.io/)
 [![AWS ECS](https://img.shields.io/badge/AWS-ECS%20Fargate-orange.svg)](https://aws.amazon.com/ecs/)
 
-Modern data orchestration platform deployed on AWS ECS Fargate with **dynamic DAG loading** for rapid deployment and scalable, serverless data pipeline management.
+Modern data orchestration platform deployed on AWS ECS Fargate for scalable, serverless data pipeline management.
 
 ## 🚀 Current Deployment Status
 
@@ -26,8 +26,8 @@ Modern data orchestration platform deployed on AWS ECS Fargate with **dynamic DA
 
 ## 🏗️ Key Features
 
-- **Dynamic DAG Discovery**: Automatically discovers all DAGs in `/app/dags/` - no manual configuration needed
-- **Dynamic S3 Loading**: DAG changes deploy in 60 seconds without container rebuilds
+- **Static DAG Deployment**: DAGs are built into the Docker image for reliable deployment
+- **EFS Integration**: Shared filesystem for state management and logs
 - **Cost Optimized**: ARM64 + AWS Free Tier (~$20-25/month)
 - **Production Ready**: Auto-scaling, high availability, comprehensive monitoring
 - **Developer Friendly**: Local development environment mirrors production exactly

@@ -34,39 +34,31 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
   && ./aws/install \
   && rm -rf awscliv2.zip aws
 
-# Copy entrypoints
-COPY docker/multi-repo-entrypoint.sh ./multi-repo-entrypoint.sh
-COPY docker/efs-workspace-entrypoint.sh ./efs-workspace-entrypoint.sh
-RUN chmod +x ./multi-repo-entrypoint.sh ./efs-workspace-entrypoint.sh
+# No longer using S3 sync entrypoints - DAGs are built into the image
 
 # Expose dagster port directly
 EXPOSE 3000
+
+# Copy the same workspace file
+COPY dagster_config/workspace.yaml ./workspace.yaml
 
 # Production stage with full cloud deployment features
 FROM base AS production
 
 # Copy workspace and instance configuration
-COPY dagster_config/workspace-production.yaml ./workspace.yaml
 COPY dagster_config/dagster-production.yaml ./.dagster_home/dagster.yaml
 
-# Copy the dynamic workspace loader and auto-discovery modules
-COPY dagster_config/auto_discover.py ./dagster_config/auto_discover.py
-COPY dagster_config/__init__.py ./dagster_config/__init__.py
-
-# Use multi-repo S3 entrypoint - supports multiple repositories
-ENTRYPOINT ["/app/multi-repo-entrypoint.sh"]
-CMD ["uv", "run", "dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
+# Direct entrypoint - no S3 sync needed
+ENTRYPOINT ["uv", "run"]
+CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
 
 # Local development stage - lightweight without cloud dependencies
 FROM base AS local
 
 # Copy workspace and instance configuration
-COPY dagster_config/workspace-local.yaml ./workspace.yaml
 COPY dagster_config/dagster-local.yaml ./.dagster_home/dagster.yaml
 
-# Copy the dynamic workspace loader for local development
-COPY dagster_config/auto_discover_local.py ./dagster_config/auto_discover_local.py
-COPY dagster_config/__init__.py ./dagster_config/__init__.py
+# No dynamic workspace loading - using static workspace.yaml
 
 # Simple command that runs dagster directly
 ENTRYPOINT ["uv", "run"]

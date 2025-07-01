@@ -28,4 +28,4 @@ def finance_report(revenue_summary):
 
 
 # Define the DAG (code location)
-daily_reports_defs = Definitions(assets=[daily_transactions, revenue_summary, finance_report])
+defs = Definitions(assets=[daily_transactions, revenue_summary, finance_report])

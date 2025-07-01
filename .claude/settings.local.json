@@ -70,7 +70,10 @@
       "Bash(nslookup:*)",
       "Bash(ping:*)",
       "Bash(rg:*)",
-      "WebFetch(domain:dagster-ecs-alb-1547382701.ap-southeast-2.elb.amazonaws.com)"
+      "WebFetch(domain:dagster-ecs-alb-1547382701.ap-southeast-2.elb.amazonaws.com)",
+      "Bash(./scripts/test-multi-repo.sh:*)",
+      "Bash(diff:*)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

@@ -182,7 +182,7 @@ resource "aws_iam_role_policy" "ecs_task_fargate_efs" {
           "elasticfilesystem:ClientWrite",
           "elasticfilesystem:ClientRootAccess"
         ]
-        Resource = aws_efs_file_system.dagster_dags.arn
+        Resource = aws_efs_file_system.dagster_workspace.arn
       }
     ]
   })

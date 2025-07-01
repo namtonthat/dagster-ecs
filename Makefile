@@ -1,4 +1,4 @@
-.PHONY: help install start stop logs reset build-local build push deploy-dags deploy-workspace deploy-all deploy ecs-logs ecs-status infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show aws-url aws-account-id aws-credentials
+.PHONY: help install start stop logs reset build-local build push deploy-workspace deploy-ecs ecs-logs ecs-status infra-init infra-plan infra-apply infra-destroy create test auth-generate auth-deploy auth-show aws-url aws-account-id aws-credentials
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
@@ -51,9 +51,6 @@ push: ## Build production image and push to ECR
 	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
 	@./scripts/push.sh
 
-deploy-dags: ## Deploy DAGs to S3 (legacy)
-	@echo "Deploying DAGs to S3..."
-	./scripts/deploy-dags.sh
 
 deploy-project: ## Deploy a project to EFS (usage: make deploy-project name=team-marketing path=./path/to/project)
 	@if [ -z "$(name)" ] || [ -z "$(path)" ]; then \
@@ -64,8 +61,6 @@ deploy-project: ## Deploy a project to EFS (usage: make deploy-project name=team
 	fi
 	@./scripts/deploy-project.sh "$(name)" "$(path)" --register
 
-deploy-all: deploy-dags deploy-ecs ## Deploy DAGs to S3, then restart ECS service
-	@echo "Deploying DAGs and restarting ECS service..."
 
 deploy-ecs: ## Deploy latest images to ECS Fargate
 	@echo "Deploying to ECS Fargate..."

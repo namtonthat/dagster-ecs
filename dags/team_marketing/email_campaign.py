@@ -29,4 +29,4 @@ def send_campaigns(campaign_content):
 
 
 # Define the DAG (code location)
-email_campaign_defs = Definitions(assets=[email_subscribers, campaign_content, send_campaigns])
+defs = Definitions(assets=[email_subscribers, campaign_content, send_campaigns])
