@@ -46,7 +46,9 @@ build: ## Build and tag Docker images
 	@echo "Building Docker image for $(target)..."
 	docker build --target $(target) -f docker/Dockerfile -t dagster-ecs:latest .
 
-push: ## Push images to ECR
+push: ## Build production image and push to ECR
+	@echo "Building production Docker image..."
+	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
 	@./scripts/push.sh
 
 deploy-dags: ## Deploy dags to AWS S3

@@ -259,7 +259,7 @@ resource "aws_ecs_task_definition" "dagster_daemon_fargate" {
       image = "${aws_ecr_repository.dagster.repository_url}:latest"
 
       # Override the default command to run daemon
-      command = ["dagster-daemon", "run"]
+      command = ["uv", "run", "dagster-daemon", "run"]
 
       mountPoints = [
         {
