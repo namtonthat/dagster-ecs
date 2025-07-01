@@ -74,8 +74,86 @@ jobs:
           fi
           echo "✅ PASS: DDoS protection verified - max scaling limited to 2 instances"
 
-  build-and-deploy:
+  infrastructure:
     needs: test
+    runs-on: ubuntu-24.04-arm
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      changed: ${{ steps.check-infra.outputs.changed }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to check for changes
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: Check for infrastructure changes
+        id: check-infra
+        run: |
+          # Check if infrastructure files changed in this commit
+          INFRA_CHANGED="false"
+          if git diff --name-only HEAD^ HEAD | grep -E "^infrastructure/.*\.(tf|tfvars|hcl)$"; then
+            echo "Infrastructure files changed"
+            INFRA_CHANGED="true"
+          else
+            echo "No infrastructure changes detected"
+          fi
+          echo "changed=$INFRA_CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Initialize OpenTofu
+        if: steps.check-infra.outputs.changed == 'true'
+        run: |
+          cd infrastructure
+          tofu init -backend-config=backend.hcl
+
+      - name: Validate OpenTofu configuration
+        if: steps.check-infra.outputs.changed == 'true'
+        run: |
+          cd infrastructure
+          tofu validate
+
+      - name: Plan infrastructure changes
+        if: steps.check-infra.outputs.changed == 'true'
+        run: |
+          cd infrastructure
+          tofu plan -out=tfplan
+          tofu show -no-color tfplan > plan.txt
+          
+          # Show summary of changes
+          echo "📋 Infrastructure Plan Summary:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          if grep -q "No changes" plan.txt; then
+            echo "✅ No infrastructure changes needed"
+          else
+            echo "Changes detected:"
+            grep -E "^  [+-~]" plan.txt || true
+          fi
+
+      - name: Apply infrastructure changes
+        if: steps.check-infra.outputs.changed == 'true'
+        run: |
+          cd infrastructure
+          tofu apply -auto-approve tfplan
+          
+          # Output key infrastructure details
+          echo "📊 Infrastructure Outputs:"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "EFS ID: $(tofu output -raw efs_file_system_id 2>/dev/null || echo 'N/A')"
+          echo "ECR URL: $(tofu output -raw ecr_repository_url)"
+          echo "ECS Cluster: $(tofu output -raw ecs_cluster_name)"
+
+  build-and-deploy:
+    needs: [test, infrastructure]
     runs-on: ubuntu-24.04-arm
     if: github.ref == 'refs/heads/main'
 
@@ -137,10 +215,22 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Amazon ECS
-        if: steps.check-image.outputs.changed == 'true'
+      - name: Deploy DAGs to S3
         run: |
+          # Deploy DAGs regardless of image changes
+          ./scripts/deploy-dags.sh
+
+      - name: Deploy to Amazon ECS
+        if: steps.check-image.outputs.changed == 'true' || needs.infrastructure.outputs.changed == 'true'
+        run: |
+          # Force new deployment if either image or infrastructure changed
           aws ecs update-service \
             --cluster $ECS_CLUSTER \
             --service $ECS_SERVICE \
             --force-new-deployment
+          
+          # Also update daemon service
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service dagster-ecs-daemon-service \
+            --force-new-deployment || echo "Daemon service update skipped"

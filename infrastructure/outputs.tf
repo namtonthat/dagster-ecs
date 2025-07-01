@@ -32,8 +32,23 @@ output "s3_bucket_name" {
 
 # ECS outputs
 output "efs_file_system_id" {
-  description = "EFS file system ID for DAGs"
+  description = "EFS file system ID for workspace projects (new multi-repo)"
+  value       = aws_efs_file_system.dagster_workspace.id
+}
+
+output "efs_dags_id" {
+  description = "EFS file system ID for DAGs (legacy)"
   value       = aws_efs_file_system.dagster_dags.id
+}
+
+output "efs_workspace_projects_ap" {
+  description = "EFS access point ID for workspace projects"
+  value       = aws_efs_access_point.workspace_projects.id
+}
+
+output "efs_workspace_config_ap" {
+  description = "EFS access point ID for workspace configuration"
+  value       = aws_efs_access_point.workspace_config.id
 }
 
 output "ecs_cluster_name" {
@@ -44,6 +59,11 @@ output "ecs_cluster_name" {
 output "ecs_service_name" {
   description = "ECS Fargate service name"
   value       = aws_ecs_service.dagster_fargate.name
+}
+
+output "aws_region" {
+  description = "AWS region"
+  value       = var.aws_region
 }
 
 output "dagster_access_note" {

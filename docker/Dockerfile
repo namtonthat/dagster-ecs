@@ -34,9 +34,10 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
   && ./aws/install \
   && rm -rf awscliv2.zip aws
 
-# Copy multi-repo S3 entrypoint
+# Copy entrypoints
 COPY docker/multi-repo-entrypoint.sh ./multi-repo-entrypoint.sh
-RUN chmod +x ./multi-repo-entrypoint.sh
+COPY docker/efs-workspace-entrypoint.sh ./efs-workspace-entrypoint.sh
+RUN chmod +x ./multi-repo-entrypoint.sh ./efs-workspace-entrypoint.sh
 
 # Expose dagster port directly
 EXPOSE 3000

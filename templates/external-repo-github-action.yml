@@ -1,0 +1,210 @@
+name: Deploy to Dagster ECS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  # These secrets should be configured in your repository settings
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.DAGSTER_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.DAGSTER_AWS_SECRET_ACCESS_KEY }}
+  DAGSTER_PROJECT_NAME: ${{ secrets.DAGSTER_PROJECT_NAME }}  # e.g., "team-marketing"
+  DAGSTER_EFS_ID: ${{ secrets.DAGSTER_EFS_ID }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/uv
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          pip install uv
+          uv pip install -e ".[dev]"
+      
+      - name: Run linting
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      
+      - name: Run type checking
+        run: |
+          uv run mypy .
+      
+      - name: Run tests
+        run: |
+          uv run pytest tests/ -v --cov=. --cov-report=xml
+      
+      - name: Validate Dagster definitions
+        run: |
+          # This validates that your Dagster definitions can be loaded
+          python -c "from ${DAGSTER_PROJECT_NAME//-/_}.definitions import defs; print('✓ Dagster definitions loaded successfully')"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Install AWS EFS utils
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nfs-common
+          
+          # Install aws-efs-utils
+          git clone https://github.com/aws/efs-utils
+          cd efs-utils
+          ./build-deb.sh
+          sudo apt-get -y install ./build/amazon-efs-utils*.deb
+          cd ..
+      
+      - name: Deploy to EFS
+        run: |
+          # Create mount point
+          sudo mkdir -p /mnt/dagster-efs
+          
+          # Mount EFS
+          echo "Mounting EFS filesystem..."
+          sudo mount -t efs -o tls,iam,accesspoint=${{ secrets.DAGSTER_EFS_ACCESS_POINT_ID }} \
+            ${{ env.DAGSTER_EFS_ID }}:/ /mnt/dagster-efs || {
+            # Fallback to NFS mount if EFS helper fails
+            echo "EFS mount failed, trying NFS mount..."
+            EFS_DNS="${{ env.DAGSTER_EFS_ID }}.efs.${{ env.AWS_REGION }}.amazonaws.com"
+            sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
+              ${EFS_DNS}:/ /mnt/dagster-efs
+          }
+          
+          # Deploy project
+          echo "Deploying project to EFS..."
+          sudo mkdir -p /mnt/dagster-efs/projects/${{ env.DAGSTER_PROJECT_NAME }}
+          
+          # Sync files (excluding unnecessary items)
+          sudo rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.venv' \
+            --exclude='venv' \
+            --exclude='.pytest_cache' \
+            --exclude='.mypy_cache' \
+            --exclude='.ruff_cache' \
+            --exclude='*.egg-info' \
+            --exclude='.coverage' \
+            --exclude='htmlcov' \
+            --exclude='.DS_Store' \
+            ./ /mnt/dagster-efs/projects/${{ env.DAGSTER_PROJECT_NAME }}/
+          
+          # Set permissions
+          sudo chmod -R 755 /mnt/dagster-efs/projects/${{ env.DAGSTER_PROJECT_NAME }}
+          
+          echo "✓ Project files deployed"
+      
+      - name: Update workspace configuration
+        run: |
+          # Update workspace.yaml if needed
+          WORKSPACE_FILE="/mnt/dagster-efs/config/workspace.yaml"
+          
+          # Ensure config directory exists
+          sudo mkdir -p /mnt/dagster-efs/config
+          
+          # Create or update workspace.yaml
+          if [ ! -f "$WORKSPACE_FILE" ]; then
+            echo "Creating workspace.yaml..."
+            echo "load_from: []" | sudo tee "$WORKSPACE_FILE" > /dev/null
+          fi
+          
+          # Add project to workspace if not already present
+          python3 - << 'EOF' | sudo tee "$WORKSPACE_FILE" > /dev/null
+          import yaml
+          import os
+          
+          workspace_file = "/mnt/dagster-efs/config/workspace.yaml"
+          project_name = os.environ['DAGSTER_PROJECT_NAME']
+          
+          # Read current workspace
+          with open(workspace_file, 'r') as f:
+              workspace = yaml.safe_load(f) or {'load_from': []}
+          
+          # Check if project already exists
+          project_entry = {
+              'python_module': {
+                  'module_name': f"{project_name.replace('-', '_')}.definitions",
+                  'working_directory': f"/app/projects/{project_name}"
+              }
+          }
+          
+          # Only add if not already present
+          exists = any(
+              entry.get('python_module', {}).get('working_directory') == f"/app/projects/{project_name}"
+              for entry in workspace.get('load_from', [])
+          )
+          
+          if not exists:
+              workspace['load_from'].append(project_entry)
+          
+          # Write updated workspace
+          print(yaml.dump(workspace, default_flow_style=False, sort_keys=False))
+          EOF
+          
+          echo "✓ Workspace configuration updated"
+      
+      - name: Trigger Dagster refresh
+        run: |
+          # Create refresh trigger
+          TRIGGER_FILE="/mnt/dagster-efs/config/.refresh_trigger"
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) - Project: ${{ env.DAGSTER_PROJECT_NAME }} - Action: deploy - Commit: ${{ github.sha }}" | \
+            sudo tee "$TRIGGER_FILE" > /dev/null
+          
+          echo "✓ Refresh triggered"
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          # Unmount EFS
+          sudo umount /mnt/dagster-efs 2>/dev/null || true
+      
+      - name: Deployment summary
+        run: |
+          echo "🚀 Deployment Complete!"
+          echo "Project: ${{ env.DAGSTER_PROJECT_NAME }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo ""
+          echo "The Dagster instance will automatically reload to include your changes."
+          echo "If changes don't appear within 2-3 minutes, check the ECS logs."
