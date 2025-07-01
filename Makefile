@@ -2,6 +2,7 @@
 
 # Infrastructure directory
 INFRA_DIR := infrastructure
+target := local
 
 # Default target - dynamically generate help from target comments
 help: ## Show this help message
@@ -26,7 +27,7 @@ logs: ## View local logs
 
 start: ## Start local Dagster stack with Docker Compose
 	@echo "Starting local Dagster stack..."
-	docker-compose up -d
+	docker-compose up -d --build
 	@echo "Dagster webserver available at http://localhost:3000"
 
 stop: ## Stop local environment
@@ -41,9 +42,9 @@ reset: ## Reset local database and restart
 
 ##@ Deployment
 
-build: ## Build and tag Docker images (production target)
-	@echo "Building Docker image for production..."
-	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
+build: ## Build and tag Docker images
+	@echo "Building Docker image for $(target)..."
+	docker build --no-cache --target $(target) -f docker/Dockerfile -t dagster-ecs:latest .
 
 push: ## Push images to ECR
 	@./scripts/push.sh
@@ -105,7 +106,8 @@ auth-show: ## Show current authentication configuration
 
 aws-url: ## Show Dagster web UI URL
 	@echo "Fetching Dagster web UI URL..."
-	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url
+	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url | tee >(pbcopy)
+	@echo
 
 aws-account-id: ## Show AWS Account ID
 	@aws sts get-caller-identity --query Account --output text

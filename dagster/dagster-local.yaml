@@ -42,32 +42,10 @@ local_artifact_storage:
   config:
     base_dir: "/app/.dagster_home/storage"
 
-# Docker run launcher for local development - each run executes in a fresh Docker container
+# Default run launcher for local development - runs in the same process
 run_launcher:
-  module: dagster_docker
-  class: DockerRunLauncher
-  config:
-    image:
-      env: DAGSTER_DOCKER_IMAGE
-    container_kwargs:
-      # Mount the same volumes as the webserver
-      volumes:
-        - "/app/dags:/app/dags:ro"
-        - "/app/.dagster_home:/app/.dagster_home"
-      environment:
-        - DAGSTER_POSTGRES_HOST
-        - DAGSTER_POSTGRES_USER
-        - DAGSTER_POSTGRES_PASSWORD
-        - DAGSTER_POSTGRES_DB
-        - DAGSTER_POSTGRES_PORT
-        - DAGSTER_S3_BUCKET
-        - AWS_ACCESS_KEY_ID
-        - AWS_SECRET_ACCESS_KEY
-        - AWS_DEFAULT_REGION
-      # Remove container after run completes
-      auto_remove: true
-      # Use dagster network for database connectivity
-      network: "dagster-ecs_dagster_network"
+  module: dagster.core.launcher
+  class: DefaultRunLauncher
 
 # Queued run coordinator for better control
 run_coordinator:

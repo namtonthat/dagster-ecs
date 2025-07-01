@@ -73,29 +73,25 @@ This deployment is optimized for **minimal AWS costs** while maintaining product
 
 ### Local Development
 ```bash
-make dev           # Start local Dagster stack with Docker Compose
-make stop          # Stop local environment
-make dev-logs      # View local logs
-make dev-reset     # Reset local database and restart
+make start         # Start local Dagster stack with Docker Compose
+make stop          # Stop local environment  
+make logs          # View local logs
+make reset         # Reset local database and restart
+make build-local   # Build Docker image for local development
+make install       # Install Python dependencies with uv
 ```
 
 ### DAG Development
 ```bash
 make create dag=my_pipeline    # Create new DAG from template (calls scripts/create-dag.sh)
 make test                      # Run type checking, linting, and tests (calls scripts/test.sh)
-make security-check           # Run security assertions for AWS credentials (calls scripts/security-check.sh)
 ```
 
-### Repository Management (External DAGs)
+### Authentication Management
 ```bash
-# Add external repository as code location
-make add-repo REPO_URL=https://github.com/user/repo.git REPO_NAME=my-pipeline
-
-# Manage repositories
-make update-repo REPO_NAME=my-pipeline   # Update repository code
-make remove-repo REPO_NAME=my-pipeline   # Remove repository
-make list-repos                          # List all repositories
-make repo-logs REPO_NAME=my-pipeline     # View repository logs
+make auth-generate user=admin pass=secret  # Generate htpasswd entry
+make auth-deploy user=admin pass=secret    # Deploy new auth credentials
+make auth-show                             # Show current authentication configuration
 ```
 
 ### Deployment Commands
@@ -107,32 +103,24 @@ make infra-apply   # Apply infrastructure changes
 make infra-destroy # Destroy infrastructure
 
 # Application deployment
-make build         # Build and tag Docker images (runtime only)
+make build         # Build and tag Docker images (default: production target)
 make push          # Push images to ECR
-make deploy-dags   # Deploy DAG files to S3 (no Docker rebuild needed)
-make deploy        # Deploy latest container images to ECS
+make deploy-dags   # Deploy DAG files and workspace to S3
+make deploy-ecs    # Deploy latest images to ECS Fargate
 make deploy-all    # Deploy DAGs to S3 AND restart ECS service
-make logs          # View ECS service logs
+make ecs-logs      # View ECS Fargate logs
 
 # Information & credentials
-make url           # Show Dagster web UI URL
+make aws-url       # Show Dagster web UI URL
+make aws-account-id # Show AWS Account ID
 make aws-credentials # Show AWS credentials (access key + secret key, one per line)
 make help          # Show all available commands (auto-generated)
 ```
 
 ### CI/CD Integration
 - **Trigger**: Push/merge to main branch
-- **Process**: 
-  - DAG Changes: Upload to S3 → Auto-sync to containers (no rebuild)
-  - Runtime Changes: Build → Test → Push to ECR → Deploy to ECS
-- **Tools**: GitHub Actions or similar pipeline
-
-### S3 Dynamic DAG Loading
-DAG files are stored in S3 and automatically synced to containers:
-- **Structure**: `s3://bucket/dags/main/` for main DAGs
-- **Sync Frequency**: Every 60 seconds automatically
-- **No Rebuilds**: DAG changes don't require Docker image rebuilds
-- **Isolated Storage**: Each repository gets dedicated S3 prefixes
+- **Process**: Build → Test → Push to ECR → Deploy to ECS
+- **Tools**: GitHub Actions pipeline configured in `.github/workflows/deploy.yml`
 
 ## Reference Implementation
 
@@ -143,58 +131,88 @@ Key differences:
 - Includes Makefile for command abstraction
 - May include additional customizations for specific deployment needs
 
-## File Structure (Implemented)
+## File Structure (Current)
 
 ```
-├── dagster_code/           # Main Dagster pipeline definitions
-│   ├── __init__.py        # Main definitions with S3 resources
-│   ├── assets.py          # Sample assets
-│   ├── jobs.py            # Sample jobs  
-│   └── resources.py       # S3 prefix isolation resources
-├── repository_manager/     # External repository management
-│   └── manager.py         # Repository deployment automation
-├── infrastructure/        # OpenTofu configuration files
-│   ├── main.tf           # Main configuration
-│   ├── vpc.tf            # VPC and networking
-│   ├── ecs.tf            # ECS cluster and services
-│   ├── rds.tf            # PostgreSQL database
-│   ├── s3.tf             # S3 storage bucket
-│   ├── service_discovery.tf # ECS service discovery
-│   └── ...               # Other infrastructure components
-├── docker/
-│   └── Dockerfile        # Single optimized container
-├── scripts/              # Automation scripts
-│   ├── create-dag.sh     # DAG creation script
-│   ├── deploy-dags.sh    # DAG deployment script
-│   ├── test.sh           # Testing script
-│   └── security-check.sh # Security assertions script
-├── docker-compose.yml    # Local development environment
-├── workspace.yaml        # Dagster workspace configuration
-├── Makefile             # Command abstractions (calls scripts)
-├── .github/workflows/   # CI/CD pipeline
-├── pyproject.toml       # Python dependencies
-├── DEPLOYMENT_ARCHITECTURE.md # Detailed architecture docs
-└── repos/               # Cloned external repositories (runtime)
+├── dags/                    # Dagster pipeline definitions
+│   ├── __init__.py         # Package initialization
+│   └── dagster_quickstart/ # Sample quickstart project
+│       └── defs/
+│           ├── assets.py   # Sample assets
+│           └── data/       # Sample data files
+├── dagster/                # Dagster configuration files
+│   ├── dagster-local.yaml  # Local development config
+│   ├── dagster-production.yaml # Production config
+│   ├── workspace-local.yaml     # Local workspace config
+│   └── workspace-production.yaml # Production workspace config
+├── infrastructure/         # OpenTofu configuration files
+│   ├── main.tf            # Main configuration
+│   ├── vpc.tf             # VPC and networking
+│   ├── ecs_fargate.tf     # ECS cluster and services
+│   ├── rds.tf             # PostgreSQL database
+│   ├── s3.tf              # S3 storage bucket
+│   ├── ecr.tf             # Elastic Container Registry
+│   ├── iam.tf             # IAM roles and policies
+│   ├── load_balancer.tf   # Application Load Balancer
+│   ├── outputs.tf         # Output values
+│   ├── variables.tf       # Input variables
+│   ├── backend.hcl        # Backend configuration
+│   └── terraform.tfvars*  # Variable values
+├── docker/                # Docker configuration
+│   ├── Dockerfile         # Multi-stage container build
+│   ├── entrypoint.sh      # Container entrypoint script
+│   ├── sync-from-s3.sh    # S3 sync script
+│   ├── generate-htpasswd.sh # Auth generation script
+│   ├── nginx.conf         # Nginx configuration
+│   └── supervisord.conf   # Supervisor configuration
+├── scripts/               # Automation scripts
+│   ├── create-dag.sh      # DAG creation script
+│   ├── deploy-dags.sh     # DAG deployment script
+│   ├── deploy-workspace.sh # Workspace deployment script
+│   ├── manage-auth.sh     # Authentication management
+│   ├── push.sh            # ECR push script
+│   └── test.sh            # Testing script
+├── templates/             # Code templates
+│   └── dag.py             # DAG template
+├── docs/                  # Documentation
+│   ├── architecture.md    # Architecture documentation
+│   └── deployment.md      # Deployment documentation
+├── .github/workflows/     # CI/CD pipeline
+│   └── deploy.yml         # GitHub Actions deployment
+├── docker-compose.yml     # Local development environment
+├── workspace.yaml         # Dagster workspace configuration
+├── Makefile              # Command abstractions
+├── pyproject.toml        # Python dependencies and project config
+├── uv.lock               # UV lockfile
+└── README.md             # Project documentation
 ```
 
 ## Key Implementation Notes
 
-### Security & Credentials
-- **AWS Secrets Manager**: Secure credential storage for S3 access
-- **IAM User**: Dedicated user with minimal S3 permissions
-- **Terraform Outputs**: 
-  - `aws_access_key_id` (sensitive)
-  - `aws_secret_access_key` (sensitive)
-  - `aws_credentials_secret_arn`
+### Current State
+- **Infrastructure**: Uses OpenTofu (Terraform alternative) for AWS resource provisioning
+- **Container Registry**: ECR for Docker image storage and deployment
+- **Multi-Stage Build**: Dockerfile with separate local and production stages
+- **Load Balancer**: Application Load Balancer for public access to Dagster UI
+- **Authentication**: HTTP basic auth support with htpasswd generation scripts
+- **Local Development**: Full Docker Compose stack for local development
+- **Python Package Management**: Uses UV for fast dependency management
+- **Code Organization**: Simple structure with sample assets in `dags/dagster_quickstart/`
 
-### Architecture Features
-- **Dynamic DAG Loading**: DAG files synced from S3 every 60 seconds
-- **No Hardcoded Values**: All bucket names and credentials are configurable
-- **Required Environment Variables**: `DAGSTER_S3_BUCKET` must be set (container fails if missing)
-- **S3 Subfolder Structure**: DAGs stored in `s3://bucket/dags/` subfolder
-- **External Repository Integration**: Add any Git repository as a Dagster code location
-- **Service Discovery**: ECS services use AWS Cloud Map for internal communication
-- **Local-First Development**: Full local development with Docker Compose
-- **Repository Management**: Python-based automation for cloning, building, and deploying repositories
-- **Infrastructure as Code**: Complete OpenTofu configuration for AWS ap-southeast-2
-- **Monitoring**: CloudWatch logging with per-repository log groups
+### Development Features
+- **ARM64 Support**: Optimized for AWS Graviton processors (cost savings)
+- **Multi-Target Build**: Separate Docker targets for local and production environments
+- **Workspace Configuration**: Separate configs for local and production Dagster workspaces
+- **Script Automation**: Comprehensive script collection for deployment and management
+- **Template System**: DAG template for rapid pipeline creation
+- **Testing Integration**: Automated testing with ruff linting and type checking
+- **Documentation**: Architecture and deployment docs in `docs/` directory
+
+### Infrastructure Components
+- **ECS Fargate**: Serverless container deployment
+- **RDS PostgreSQL**: Managed database service
+- **S3**: Object storage for assets and logs
+- **VPC**: Isolated network environment
+- **IAM**: Role-based access control
+- **CloudWatch**: Logging and monitoring
+- **Application Load Balancer**: Public access and SSL termination

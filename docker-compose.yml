@@ -37,10 +37,11 @@ services:
       DAGSTER_HOME: /app/.dagster_home
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
+      DAGSTER_DOCKER_IMAGE: dagster-ecs-dagster-webserver
     volumes:
       - ./dags:/app/dags
       - ./workspace.yaml:/app/workspace.yaml
-      - ./docker/dagster-local.yaml:/app/.dagster_home/dagster.yaml
+      - ./dagster/dagster-local.yaml:/app/.dagster_home/dagster.yaml
       - ./.dagster_home:/app/.dagster_home
     depends_on:
       postgres:
@@ -57,7 +58,7 @@ services:
       dockerfile: docker/Dockerfile
       target: local
     container_name: dagster_daemon
-    command: ["dagster-daemon", "run"]
+    command: ["uv", "run", "dagster-daemon", "run"]
     environment:
       DAGSTER_POSTGRES_USER: dagster
       DAGSTER_POSTGRES_PASSWORD: dagster
@@ -67,10 +68,11 @@ services:
       DAGSTER_HOME: /app/.dagster_home
       AWS_ACCESS_KEY_ID: local
       AWS_SECRET_ACCESS_KEY: local
+      DAGSTER_DOCKER_IMAGE: dagster-ecs-dagster-webserver
     volumes:
       - ./dags:/app/dags
       - ./workspace.yaml:/app/workspace.yaml
-      - ./docker/dagster-local.yaml:/app/.dagster_home/dagster.yaml
+      - ./dagster/dagster-local.yaml:/app/.dagster_home/dagster.yaml
       - ./.dagster_home:/app/.dagster_home
     depends_on:
       postgres:

@@ -13,9 +13,14 @@ RUN apt-get update && apt-get install -y \
   build-essential \
   && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Copy requirements and install Python dependencies
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e .
+RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --locked --no-install-project --no-editable
 
 # Create dagster home directory
 RUN mkdir -p /app/.dagster_home /app/dags
@@ -36,10 +41,10 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
   && ./aws/install \
   && rm -rf awscliv2.zip aws
 
-# Copy entrypoint and sync scripts (same as production)
-COPY docker/entrypoint.sh ./entrypoint.sh
-COPY docker/sync-from-s3.sh ./sync-from-s3.sh
-RUN chmod +x ./entrypoint.sh ./sync-from-s3.sh
+# # Copy entrypoint and sync scripts (same as production)
+# COPY docker/entrypoint.sh ./entrypoint.sh
+# COPY docker/sync-from-s3.sh ./sync-from-s3.sh
+# RUN chmod +x ./entrypoint.sh ./sync-from-s3.sh
 
 # Expose dagster port directly
 EXPOSE 3000
@@ -64,8 +69,7 @@ COPY dagster/dagster-production.yaml ./.dagster_home/dagster.yaml
 # # Expose nginx port (which proxies to Dagster on port 3000)
 # EXPOSE 80
 
-# Use entrypoint script to sync DAGs from S3 before starting services
-ENTRYPOINT ["./entrypoint.sh"]
+# Removed entrypoint - using direct CMD for simplicity
 
 # # Default command uses supervisor to run both nginx and dagster
 # CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
@@ -78,9 +82,6 @@ FROM base AS local
 COPY dagster/workspace-local.yaml ./workspace.yaml
 COPY dagster/dagster-local.yaml ./.dagster_home/dagster.yaml
 
-
-# Use same entrypoint as production for S3 sync consistency
-ENTRYPOINT ["./entrypoint.sh"]
 
 # Simple command that runs dagster directly (passed to entrypoint)
 CMD ["dagster-webserver", "--host", "0.0.0.0", "--port", "3000", "--workspace", "/app/workspace.yaml"]
