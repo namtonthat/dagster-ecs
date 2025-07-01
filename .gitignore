@@ -53,4 +53,5 @@ docker-compose.override.yml
 .env.localinfrastructure/terraform.tfvars
 
 # Dagster related
-.dagster_home/*
+.dagster_home/**/*
+
