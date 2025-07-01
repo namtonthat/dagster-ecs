@@ -45,3 +45,13 @@ output "ecs_service_name" {
   description = "ECS Fargate service name"
   value       = aws_ecs_service.dagster_fargate.name
 }
+
+output "dagster_access_note" {
+  description = "Instructions for accessing Dagster web UI"
+  value       = <<-EOT
+    Dagster is accessible via the load balancer at:
+    ${aws_lb.main.dns_name}
+    
+    Full URL: http://${aws_lb.main.dns_name}
+  EOT
+}

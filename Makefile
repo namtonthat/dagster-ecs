@@ -107,10 +107,12 @@ auth-show: ## Show current authentication configuration
 
 ##@ AWS Related Information
 
-aws-url: ## Show how to access Dagster web UI
-	@echo "Fetching Dagster access instructions..."
-	@tofu -chdir=$(INFRA_DIR) output -raw dagster_access_note
-	@echo
+aws-url: ## Show how to access Dagster web UI and copy URL to clipboard
+	@echo "Fetching Dagster URL..."
+	@URL=$$(tofu -chdir=$(INFRA_DIR) output -raw dagster_access_note | grep -o 'http://[^ ]*' | head -1); \
+		echo "$$URL"; \
+		echo "$$URL" | pbcopy; \
+		echo "✓ URL copied to clipboard"
 
 aws-account-id: ## Show AWS Account ID
 	@aws sts get-caller-identity --query Account --output text
