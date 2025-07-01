@@ -102,7 +102,18 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build --target production -f docker/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # Check if latest image exists in ECR for cache
+          CACHE_FROM_ARG=""
+          if docker manifest inspect $ECR_REGISTRY/$ECR_REPOSITORY:latest > /dev/null 2>&1; then
+            echo "Found existing image in ECR, using as cache source"
+            docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
+            CACHE_FROM_ARG="--cache-from $ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          else
+            echo "No existing image found in ECR, building without cache"
+          fi
+          
+          # Build with cache if available
+          docker build --target production -f docker/Dockerfile $CACHE_FROM_ARG -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest

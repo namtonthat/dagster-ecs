@@ -44,7 +44,7 @@ reset: ## Reset local database and restart
 
 build: ## Build and tag Docker images
 	@echo "Building Docker image for $(target)..."
-	docker build --no-cache --target $(target) -f docker/Dockerfile -t dagster-ecs:latest .
+	docker build --target $(target) -f docker/Dockerfile -t dagster-ecs:latest .
 
 push: ## Push images to ECR
 	@./scripts/push.sh
@@ -55,7 +55,7 @@ deploy-dags: ## Deploy dags to AWS S3
 	@echo "Deploying workspace.yaml to S3..."
 	./scripts/deploy-workspace.sh
 
-deploy-all: deploy-dags deploy-ecs ## Deploy DAGs and workspace to S3, then restart ECS service
+deploy-all: deploy-ecs deploy-dags ## Deploy DAGs and workspace to S3, then restart ECS service
 	@echo "Deploying all files and restarting ECS service..."
 
 deploy-ecs: ## Deploy latest images to ECS Fargate
@@ -106,7 +106,7 @@ auth-show: ## Show current authentication configuration
 
 aws-url: ## Show Dagster web UI URL
 	@echo "Fetching Dagster web UI URL..."
-	@tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url | tee >(pbcopy)
+	@bash -c 'tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url | tee >(pbcopy)'
 	@echo
 
 aws-account-id: ## Show AWS Account ID
