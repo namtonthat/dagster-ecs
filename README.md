@@ -12,7 +12,7 @@ Modern data orchestration platform deployed on AWS ECS Fargate with **dynamic DA
 ## 🚀 Current Deployment Status
 
 **✅ OPERATIONAL**: Fully deployed and running in AWS ap-southeast-2
-- **Web UI**: http://dagster-ecs-alb-1680764756.ap-southeast-2.elb.amazonaws.com
+- **Web UI**: Direct access via ECS task public IP on port 3000
 - **Authentication**: Basic auth enabled (admin user)
 - **Services**: 2 ECS Fargate services (webserver + daemon)
 - **Auto Scaling**: 1-2 instances based on CPU/Memory

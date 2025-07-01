@@ -4,6 +4,23 @@
 
 This document describes the complete architecture of the Dagster ECS Fargate deployment - a cost-optimized, production-ready data orchestration platform running on AWS. The system features **dynamic DAG loading** from S3, eliminating Docker rebuilds for pipeline changes and enabling rapid development cycles.
 
+## Related Documentation
+
+- **[Development Guide](./development.md)**: Local development workflow, testing, and DAG creation
+- **[Deployment Guide](./deployment.md)**: Deployment procedures, operations, and troubleshooting
+
+## Table of Contents
+
+- [🏗️ System Architecture](#️-system-architecture)
+- [🔄 Dynamic DAG Loading System](#-dynamic-dag-loading-system)
+- [🌐 Network Architecture](#-network-architecture)
+- [💰 Cost Optimization](#-cost-optimization)
+- [🔒 Security Model](#-security-model)
+- [📊 Monitoring & Observability](#-monitoring--observability)
+- [🛠️ Infrastructure as Code](#️-infrastructure-as-code)
+- [🚀 Deployment Architecture](#-deployment-architecture)
+- [📁 Project Structure](#-project-structure)
+
 ## 🏗️ System Architecture
 
 ### High-Level Components
@@ -16,8 +33,7 @@ graph TB
     
     subgraph "AWS ap-southeast-2 (vpc-03a6c5433c1e0bb48)"
         subgraph "Public Subnet A (10.0.1.0/24)"
-            ALB[Application Load Balancer<br/>dagster-ecs-alb-1680764756<br/>Port 80 HTTP]
-            ECS_WEB[ECS Fargate Task<br/>Dagster Webserver<br/>ARM64 - 0.25vCPU/512MB]
+            ECS_WEB[ECS Fargate Task<br/>Dagster Webserver<br/>ARM64 - 0.25vCPU/512MB<br/>Port 3000 - Direct Access]
         end
         
         subgraph "Public Subnet B (10.0.2.0/24)"
@@ -37,14 +53,12 @@ graph TB
         end
     end
     
-    Users --> ALB
-    ALB --> ECS_WEB
+    Users --> ECS_WEB
     ECS_WEB --> RDS
     ECS_WEB --> S3
     ECS_DAEMON --> RDS
     ECS_DAEMON --> S3
     
-    style ALB fill:#e1f5fe
     style ECS_WEB fill:#e8f5e8
     style ECS_DAEMON fill:#e8f5e8
     style RDS fill:#fff3e0
@@ -57,7 +71,6 @@ graph TB
 |-----------|---------------|---------|
 | **ECS Fargate** | 0.25 vCPU, 512MB RAM (ARM64) | Container runtime |
 | **PostgreSQL RDS** | db.t3.micro (Free Tier) | Metadata storage |
-| **Application Load Balancer** | Multi-AZ, health checks | Traffic routing |
 | **S3 Bucket** | Standard tier | DAG files & assets |
 | **EFS File System** | Burst mode, multi-AZ | Shared storage |
 | **ECR Repository** | ARM64 images | Container registry |
@@ -121,8 +134,7 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph "Security Group Rules"
-        INTERNET[Internet<br/>0.0.0.0/0:80] --> ALB_SG[ALB Security Group]
-        ALB_SG --> ECS_SG[ECS Tasks Security Group]
+        INTERNET[Internet<br/>0.0.0.0/0:3000] --> ECS_SG[ECS Tasks Security Group]
         ECS_SG --> RDS_SG[RDS Security Group<br/>Port 5432]
         ECS_SG --> EFS_SG[EFS Security Group<br/>Port 2049]
     end
@@ -132,7 +144,7 @@ graph LR
 
 - **Multi-AZ Deployment**: Services distributed across availability zones
 - **Auto Scaling**: 1-2 instances based on CPU (70%) and memory (80%)
-- **Health Checks**: ALB monitors container health via `/health` endpoint
+- **Health Checks**: ECS service monitors container health
 - **Automatic Recovery**: Failed tasks automatically replaced
 
 ## 💰 Cost Optimization
@@ -145,9 +157,17 @@ graph LR
 | **RDS PostgreSQL** | 750 hours | $0 |
 | **S3 Storage** | 5GB | $0 |
 | **EFS Storage** | 5GB | $0 |
-| **ALB** | - | $16-20 |
 
 **Total Estimated Cost**: $20-25/month
+
+### Monthly Cost Breakdown
+
+| Service | Free Tier | Post Free Tier |
+|---------|-----------|----------------|
+| ECS Fargate | $3-5 | $8-12 |
+| RDS PostgreSQL | $0 | $12-15 |
+| S3 + EFS Storage | $0 | $2-5 |
+| **Total** | **$20-25** | **$38-52** |
 
 ### Cost Optimization Features
 
@@ -189,12 +209,12 @@ IAM User (for S3)
 ### CloudWatch Integration
 
 - **Log Groups**: `/ecs/dagster-ecs-fargate`
-- **Metrics**: ECS service metrics, ALB metrics, auto scaling
+- **Metrics**: ECS service metrics, auto scaling
 - **Health Checks**: Continuous monitoring via load balancer
 
 ### Performance Characteristics
 
-- **ALB → ECS**: < 1ms latency (same AZ)
+- **Direct Access**: No proxy latency
 - **ECS → RDS**: < 2ms latency (same VPC)
 - **ECS → S3**: 5-20ms latency (regional service)
 - **Fargate Network**: Up to 25 Gbps performance
@@ -218,7 +238,7 @@ infrastructure/
 
 ### Key Outputs
 
-- `load_balancer_url`: Dagster web UI URL
+- `dagster_access_note`: Instructions for accessing Dagster
 - `s3_bucket_name`: Bucket for DAG storage
 - `aws_access_key_id`: S3 access credentials (sensitive)
 - `aws_secret_access_key`: S3 secret key (sensitive)
@@ -248,7 +268,7 @@ graph TD
 1. **Image Build**: New Docker image built and pushed to ECR
 2. **ECS Deployment**: Service update triggers rolling deployment
 3. **Health Checks**: New tasks must pass health checks
-4. **Traffic Switching**: ALB gradually routes traffic to new tasks
+4. **Rolling Update**: ECS gradually replaces tasks
 5. **Zero Downtime**: Old tasks terminated only after new ones are healthy
 
 ## 📁 Project Structure
@@ -271,5 +291,10 @@ graph TD
 ├── docker-compose.yml   # Local development environment
 └── Makefile            # Command abstractions
 ```
+
+## Next Steps
+
+- For local development setup, see the [Development Guide](./development.md)
+- For deployment procedures, see the [Deployment Guide](./deployment.md)
 
 This architecture provides a robust, cost-effective, and scalable foundation for data orchestration workloads with the flexibility to handle both development and production requirements.

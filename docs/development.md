@@ -2,6 +2,21 @@
 
 This guide covers the development workflow for working with the Dagster ECS deployment.
 
+## Related Documentation
+
+- **[Architecture Guide](./architecture.md)**: System design and infrastructure details
+- **[Deployment Guide](./deployment.md)**: Production deployment and operations
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Available Commands](#available-commands)
+- [🔄 Development Workflow](#-development-workflow)
+- [🧪 Testing Strategy](#-testing-strategy)
+- [⚡ Performance Tips](#-performance-tips)
+- [🔧 Advanced Usage](#-advanced-usage)
+- [🚨 Troubleshooting](#-troubleshooting)
+
 ## Quick Start
 
 ```bash
@@ -21,6 +36,8 @@ make stop
 ## Available Commands
 
 All commands are available through the Makefile. Run `make help` to see the complete list of available commands with descriptions organized by category.
+
+For deployment-specific commands and infrastructure management, see the [Deployment Guide](./deployment.md).
 
 ## 🔄 Development Workflow
 
@@ -59,7 +76,7 @@ make test
 make deploy-dags    # 60 second deployment
 ```
 
-**How it works**: DAG files are uploaded to S3 and automatically synced to running containers every 10 minutes.
+**How it works**: DAG files are uploaded to S3 and automatically synced to running containers. For details on the S3 sync architecture, see the [Architecture Guide](./architecture.md#-dynamic-dag-loading-system).
 
 ### Full Deployment (When Needed)
 
@@ -135,6 +152,8 @@ Use `make help` to see all available commands including:
 - Authentication management
 - AWS information and deployment commands
 
+For production operations and infrastructure management, refer to the [Deployment Guide](./deployment.md).
+
 ## 🚨 Troubleshooting
 
 ### Common Issues
@@ -170,5 +189,11 @@ make auth-deploy user=admin pass=newpassword
 ```bash
 make help    # Shows all available commands with descriptions
 ```
+
+## Next Steps
+
+- Understand the system architecture: [Architecture Guide](./architecture.md)
+- Deploy to production: [Deployment Guide](./deployment.md)
+- Review available commands: `make help`
 
 This development workflow is optimized for rapid iteration and reliable deployment of data pipelines.

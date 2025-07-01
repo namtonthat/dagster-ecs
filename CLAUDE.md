@@ -156,7 +156,6 @@ Key differences:
 │   ├── s3.tf              # S3 storage bucket
 │   ├── ecr.tf             # Elastic Container Registry
 │   ├── iam.tf             # IAM roles and policies
-│   ├── load_balancer.tf   # Application Load Balancer
 │   ├── outputs.tf         # Output values
 │   ├── variables.tf       # Input variables
 │   ├── backend.hcl        # Backend configuration
@@ -217,7 +216,7 @@ The production deployment now supports automatic DAG discovery. Instead of manua
 - **Infrastructure**: Uses OpenTofu (Terraform alternative) for AWS resource provisioning
 - **Container Registry**: ECR for Docker image storage and deployment
 - **Multi-Stage Build**: Dockerfile with separate local and production stages
-- **Load Balancer**: Application Load Balancer for public access to Dagster UI
+- **Direct Access**: ECS tasks with public IPs for cost-effective access (no load balancer)
 - **Authentication**: HTTP basic auth support with htpasswd generation scripts
 - **Local Development**: Full Docker Compose stack for local development
 - **Python Package Management**: Uses UV for fast dependency management
@@ -239,4 +238,3 @@ The production deployment now supports automatic DAG discovery. Instead of manua
 - **VPC**: Isolated network environment
 - **IAM**: Role-based access control
 - **CloudWatch**: Logging and monitoring
-- **Application Load Balancer**: Public access and SSL termination

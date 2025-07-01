@@ -107,9 +107,9 @@ auth-show: ## Show current authentication configuration
 
 ##@ AWS Related Information
 
-aws-url: ## Show Dagster web UI URL
-	@echo "Fetching Dagster web UI URL..."
-	@bash -c 'tofu -chdir=$(INFRA_DIR) output -raw load_balancer_url | tee >(pbcopy)'
+aws-url: ## Show how to access Dagster web UI
+	@echo "Fetching Dagster access instructions..."
+	@tofu -chdir=$(INFRA_DIR) output -raw dagster_access_note
 	@echo
 
 aws-account-id: ## Show AWS Account ID

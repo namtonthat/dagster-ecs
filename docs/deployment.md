@@ -4,6 +4,24 @@
 
 This guide covers deployment processes, operational procedures, and maintenance tasks for the Dagster ECS Fargate deployment. The system supports both rapid DAG deployments (60 seconds) and full infrastructure deployments (5-10 minutes).
 
+## Related Documentation
+
+- **[Architecture Guide](./architecture.md)**: System design, infrastructure details, and technical specifications
+- **[Development Guide](./development.md)**: Local development setup and DAG creation workflow
+
+## Table of Contents
+
+- [🚀 Deployment Types](#-deployment-types)
+- [📋 Deployment Workflow](#-deployment-workflow)
+- [🔧 Operations Guide](#-operations-guide)
+- [🏗️ Local Development](#️-local-development)
+- [🗄️ Database Operations](#️-database-operations)
+- [📊 Cost Management](#-cost-management)
+- [🔒 Security Operations](#-security-operations)
+- [🚨 Incident Response](#-incident-response)
+- [📈 Performance Optimization](#-performance-optimization)
+- [🔄 Backup & Recovery](#-backup--recovery)
+
 ## 🚀 Deployment Types
 
 ### 1. DAG-Only Deployment (Fast Path)
@@ -58,44 +76,23 @@ make deploy        # Deploy to ECS
    make ecs-logs      # Monitor container logs
    ```
 
-### Development Workflow
+### Deployment Decision Matrix
 
-```mermaid
-flowchart TD
-    A[Edit DAG Files] --> B{Change Type?}
-    B -->|DAGs Only| C[make deploy-dags]
-    B -->|Runtime| D[make build]
-    
-    C --> E[S3 Upload]
-    E --> F[Container Auto-Sync<br/>~60 seconds]
-    F --> G[Changes Live]
-    
-    D --> H[make push]
-    H --> I[make deploy]
-    I --> J[ECS Rolling Update<br/>~5 minutes]
-    J --> G
-    
-    G --> K[Test in UI]
-    K --> L{Success?}
-    L -->|No| M[Debug & Fix]
-    L -->|Yes| N[Done]
-    M --> A
-```
+| Change Type | Commands | Deployment Time | When to Use |
+|-------------|----------|-----------------|-------------|
+| DAG files only | `make deploy-dags` | ~60 seconds | Pipeline logic, asset definitions |
+| DAG + restart | `make deploy-all` | ~2 minutes | New DAGs, major changes |
+| Runtime changes | `make build && make push && make deploy` | 5-10 minutes | Dockerfile, dependencies, config |
 
 ## 🔧 Operations Guide
 
 ### Monitoring Commands
 
-```bash
-# View application logs
-make ecs-logs
-
-# Check service status
-aws ecs describe-services --cluster dagster-ecs-fargate-cluster --services dagster-ecs-fargate-service
-
-# Monitor resource utilization
-aws cloudwatch get-metric-statistics --namespace AWS/ECS --metric-name CPUUtilization --dimensions Name=ServiceName,Value=dagster-ecs-fargate-service
-```
+| Command | Purpose | Output |
+|---------|---------|--------|
+| `make ecs-logs` | View application logs | Real-time container logs |
+| `aws ecs describe-services --cluster dagster-ecs-fargate-cluster --services dagster-ecs-fargate-service` | Check service status | JSON with task counts, deployments |
+| `aws cloudwatch get-metric-statistics` | Monitor resources | CPU/memory metrics |
 
 ### Scaling Operations
 
@@ -107,133 +104,43 @@ aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-e
 aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --desired-count 0
 ```
 
-### Troubleshooting
+### Troubleshooting Guide
 
-**Container Won't Start:**
-```bash
-# Check logs for startup errors
-make ecs-logs
-
-# Common issues:
-# - Missing DAGSTER_S3_BUCKET environment variable
-# - AWS credentials not configured
-# - S3 bucket access denied
-# - Database connection failed
-```
-
-**DAG Sync Issues:**
-```bash
-# Test S3 access manually
-aws s3 ls s3://your-bucket-name/dags/
-
-# Check container sync logs
-make ecs-logs | grep "sync"
-
-# Force container restart
-make deploy
-```
-
-**Health Check Failures:**
-```bash
-# Check ALB target health
-aws elbv2 describe-target-health --target-group-arn $(aws elbv2 describe-target-groups --query 'TargetGroups[0].TargetGroupArn' --output text)
-
-# Test health endpoint
-curl http://your-alb-url/health
-```
+| Issue | Symptoms | Resolution |
+|-------|----------|------------|
+| **Container Won't Start** | ECS task stops immediately | 1. Check `make ecs-logs` for errors<br>2. Verify environment variables<br>3. Check AWS credentials<br>4. Test database connectivity |
+| **DAG Sync Failures** | DAGs not appearing in UI | 1. Run `aws s3 ls` to test access<br>2. Check sync logs: `make ecs-logs \| grep sync`<br>3. Force restart: `make deploy` |
+| **Health Check Failures** | ECS task unhealthy | 1. Check ECS task status<br>2. Test endpoint: `curl http://<task-ip>:3000/health`<br>3. Review security groups |
 
 ## 🏗️ Local Development
 
-### Development Environment
-
-```bash
-# Start local stack
-make start         # Docker Compose with PostgreSQL
-make logs          # View logs
-
-# Development workflow
-make stop          # Stop services
-make reset         # Reset database and restart
-```
-
-### Local vs Production Parity
-
-The local environment now mirrors production with S3 sync capabilities:
-
-```bash
-# Enable S3 sync in local development
-export DAGSTER_S3_BUCKET=your-bucket-name
-export AWS_ACCESS_KEY_ID=your-key
-export AWS_SECRET_ACCESS_KEY=your-secret
-
-# Start with S3 sync enabled
-make start
-```
-
-**Local Mode (default):**
-- `AWS_ACCESS_KEY_ID=local` → Uses local files
-- No S3 sync, faster startup
-
-**S3 Mode:**
-- Real AWS credentials → Syncs from S3
-- Identical to production behavior
+See the [Development Guide](./development.md) for local development setup and workflow.
 
 ## 🗄️ Database Operations
 
-### Database Persistence
-
-**Production (RDS):**
-- Instance: `db.t3.micro` (Free Tier)
-- Storage: 20GB GP2 with encryption
-- Backups: Automated daily backups
-- Multi-AZ: Available for high availability
-
-**Local (Docker):**
-- Volume mounted for persistence
-- Same PostgreSQL version as production
-
-### Database Maintenance
+### Database Management
 
 ```bash
-# Connect to production database
+# Check database status
 aws rds describe-db-instances --db-instance-identifier dagster-ecs-db
 
-# Database migrations (if needed)
+# Database backups are automated (7-day retention)
 # Dagster handles schema migrations automatically
 ```
 
+For database architecture details, see the [Architecture Guide](./architecture.md#infrastructure-specifications).
+
 ## 📊 Cost Management
 
-### Cost Optimization Strategies
+### Quick Cost Controls
 
-1. **Auto-Shutdown Development Environments**
-   ```bash
-   # Stop ECS services when not in use
-   aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-fargate-service --desired-count 0
-   aws ecs update-service --cluster dagster-ecs-fargate-cluster --service dagster-ecs-daemon-service --desired-count 0
-   ```
+| Action | Command | Savings |
+|--------|---------|----------|
+| Stop ECS services | `aws ecs update-service --cluster dagster-ecs-fargate-cluster --service [service-name] --desired-count 0` | ~$5-10/month per service |
+| Monitor usage | `aws ce get-cost-and-usage --time-period Start=YYYY-MM-DD,End=YYYY-MM-DD --granularity MONTHLY --metrics BlendedCost` | Identify cost trends |
+| Scale down RDS | Modify instance type to `db.t3.micro` | ~$10-20/month |
 
-2. **Monitor Usage**
-   ```bash
-   # Check AWS costs
-   aws ce get-cost-and-usage --time-period Start=2024-01-01,End=2024-01-31 --granularity MONTHLY --metrics BlendedCost
-   ```
-
-3. **Free Tier Monitoring**
-   - RDS: 750 hours/month (keep under limit)
-   - ECS: Minimal ARM64 usage
-   - S3: Under 5GB storage
-   - EFS: Under 5GB storage
-
-### Monthly Cost Breakdown
-
-| Service | Free Tier | Post Free Tier |
-|---------|-----------|----------------|
-| ECS Fargate | $3-5 | $8-12 |
-| RDS PostgreSQL | $0 | $12-15 |
-| Application Load Balancer | $16-20 | $16-20 |
-| S3 + EFS Storage | $0 | $2-5 |
-| **Total** | **$20-25** | **$38-52** |
+For detailed cost analysis, see the [Architecture Guide](./architecture.md#-cost-optimization).
 
 ## 🔒 Security Operations
 
@@ -274,25 +181,13 @@ aws ec2 describe-security-groups --group-ids sg-xxxxxxxxx
 
 ## 🚨 Incident Response
 
-### Common Issues & Solutions
+### Incident Response Matrix
 
-**Service Unavailable:**
-1. Check ALB health checks
-2. Verify ECS service status
-3. Review container logs
-4. Check security group rules
-
-**Database Connection Errors:**
-1. Verify RDS instance status
-2. Check security group connectivity
-3. Validate credentials in Secrets Manager
-4. Test network connectivity
-
-**S3 Sync Failures:**
-1. Verify S3 bucket permissions
-2. Check IAM role policies
-3. Validate AWS credentials
-4. Test bucket access from container
+| Incident | Detection | Immediate Actions | Resolution Steps |
+|----------|-----------|-------------------|------------------|
+| **Service Down** | UI unreachable | 1. Check `make ecs-logs`<br>2. Verify task status | 1. Get task public IP<br>2. Check security groups<br>3. Force redeploy |
+| **Database Error** | Connection failures in logs | 1. Check RDS status<br>2. Test connectivity | 1. Verify credentials<br>2. Check network ACLs<br>3. Review RDS logs |
+| **S3 Sync Failed** | DAGs not updating | 1. Test S3 access<br>2. Check IAM policies | 1. Verify bucket permissions<br>2. Validate credentials<br>3. Manual sync test |
 
 ### Emergency Procedures
 
@@ -321,22 +216,19 @@ aws ecs execute-command --cluster dagster-ecs-fargate-cluster --task task-id --c
 Key metrics to monitor:
 - **ECS CPU Utilization**: Target < 70%
 - **ECS Memory Utilization**: Target < 80%
-- **ALB Response Time**: Target < 2 seconds
+- **Direct Response Time**: No proxy overhead
 - **Database Connections**: Monitor active connections
 - **S3 Sync Duration**: Should complete < 30 seconds
 
 ### Performance Tuning
 
-```bash
-# Increase container resources (if needed)
-# Edit infrastructure/ecs.tf:
-# cpu = 512    # 0.5 vCPU
-# memory = 1024 # 1GB RAM
+| Resource | Current | Scale Up Options | Impact |
+|----------|---------|------------------|--------|
+| CPU | 256 (0.25 vCPU) | 512, 1024, 2048 | Better concurrent processing |
+| Memory | 512 MB | 1024, 2048, 4096 MB | More DAGs in memory |
+| Task Count | 1 | 2-3 | Higher availability |
 
-# Apply changes
-make infra-apply
-make deploy
-```
+To scale: Edit `infrastructure/ecs_fargate.tf`, then run `make infra-apply && make deploy`.
 
 ## 🔄 Backup & Recovery
 
@@ -365,5 +257,11 @@ aws s3 sync ./backup/dags/ s3://your-bucket-name/dags/
 # Restore infrastructure from code
 make infra-apply
 ```
+
+## Next Steps
+
+- Review the [Architecture Guide](./architecture.md) for system design details
+- Set up local development using the [Development Guide](./development.md)
+- Monitor costs using the strategies outlined in this guide
 
 This deployment guide provides comprehensive coverage of operational procedures, from routine deployments to emergency response, ensuring reliable and efficient management of your Dagster ECS infrastructure.
