@@ -5,14 +5,13 @@ set -e
 # Usage: ./scripts/test.sh
 
 echo "Running type checking..."
-ty check
+uv run ty check
 
 echo "Running linting..."
-ruff check --fix .
-ruff format .
+uv run ruff check --fix .
+ur run ruff format .
 
 # echo "Running tests..."
 # pytest
 
 echo "✅ All tests passed!"
-
