@@ -51,17 +51,6 @@ push: ## Build production image and push to ECR
 	docker build --target production -f docker/Dockerfile -t dagster-ecs:latest .
 	@./scripts/push.sh
 
-
-deploy-project: ## Deploy a project to EFS (usage: make deploy-project name=team-marketing path=./path/to/project)
-	@if [ -z "$(name)" ] || [ -z "$(path)" ]; then \
-		echo "Usage: make deploy-project name=<project-name> path=<project-path>"; \
-		echo "  name: Unique project identifier (e.g., team-marketing)"; \
-		echo "  path: Path to project directory containing pyproject.toml"; \
-		exit 1; \
-	fi
-	@./scripts/deploy-project.sh "$(name)" "$(path)" --register
-
-
 deploy-ecs: ## Deploy latest images to ECS Fargate
 	@echo "Deploying to ECS Fargate..."
 	@echo "Note: This requires ECS cluster to be created via infrastructure"

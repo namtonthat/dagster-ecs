@@ -7,5 +7,3 @@ load_from:
   - python_module: dags.dagster_quickstart.defs.assets
   - python_module: dags.team_data_science.ml_training
   - python_module: dags.team_finance.daily_reports
-  - python_module: dags.team_marketing.email_campaign
-  - python_module: dags.test_dynamic.dynamic_test
