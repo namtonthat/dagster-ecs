@@ -1,0 +1,172 @@
+name: Deploy DAGs to EFS and S3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dags/**'
+      - '.github/workflows/deploy-dags-to-efs.yml'
+  workflow_dispatch:
+    inputs:
+      team:
+        description: 'Team name to deploy (leave empty for all)'
+        required: false
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+  EFS_MOUNT_PATH: /mnt/efs
+  S3_BUCKET_NAME: dagster-dags-backup
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # for OIDC
+      contents: read
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Install EFS mount helper
+        run: |
+          # Install amazon-efs-utils
+          sudo apt-get update
+          sudo apt-get install -y git binutils
+          
+          git clone https://github.com/aws/efs-utils
+          cd efs-utils
+          ./build-deb.sh
+          sudo apt-get install -y ./build/amazon-efs-utils*.deb
+          
+      - name: Get EFS ID from infrastructure
+        id: get-efs
+        run: |
+          # Get EFS ID from SSM Parameter Store (set by Terraform)
+          EFS_ID=$(aws ssm get-parameter --name "/dagster/efs-id" --query "Parameter.Value" --output text)
+          echo "EFS_ID=${EFS_ID}" >> $GITHUB_OUTPUT
+          
+      - name: Mount EFS
+        run: |
+          # Create mount point
+          sudo mkdir -p ${{ env.EFS_MOUNT_PATH }}
+          
+          # Mount EFS using mount helper
+          sudo mount -t efs -o tls ${{ steps.get-efs.outputs.EFS_ID }}:/ ${{ env.EFS_MOUNT_PATH }}
+          
+          # Verify mount
+          df -h ${{ env.EFS_MOUNT_PATH }}
+          
+      - name: Deploy DAGs to EFS
+        run: |
+          # Determine which teams to deploy
+          if [ -n "${{ github.event.inputs.team }}" ]; then
+            TEAMS="${{ github.event.inputs.team }}"
+          else
+            # Deploy all teams
+            TEAMS=$(ls -d dags/*/ | grep -v __pycache__ | xargs -n1 basename)
+          fi
+          
+          echo "Deploying teams: $TEAMS"
+          
+          # Create workspace directory if it doesn't exist
+          sudo mkdir -p ${{ env.EFS_MOUNT_PATH }}/dagster-workspace/projects
+          
+          # Deploy each team's DAGs
+          for team in $TEAMS; do
+            if [ -d "dags/$team" ]; then
+              echo "Deploying $team DAGs to EFS..."
+              
+              # Create team directory
+              sudo mkdir -p ${{ env.EFS_MOUNT_PATH }}/dagster-workspace/projects/$team
+              
+              # Copy files, preserving structure
+              sudo rsync -av --delete \
+                --exclude='__pycache__' \
+                --exclude='*.pyc' \
+                --exclude='.pytest_cache' \
+                "dags/$team/" "${{ env.EFS_MOUNT_PATH }}/dagster-workspace/projects/$team/"
+              
+              # Set permissions
+              sudo chown -R 1000:1000 ${{ env.EFS_MOUNT_PATH }}/dagster-workspace/projects/$team
+              
+              echo "✅ Deployed $team to EFS"
+            fi
+          done
+          
+      - name: Copy workspace configuration
+        run: |
+          # Copy workspace.yaml if it exists
+          if [ -f "dagster_config/workspace.yaml" ]; then
+            sudo cp dagster_config/workspace.yaml ${{ env.EFS_MOUNT_PATH }}/dagster-workspace/
+          fi
+          
+          # Copy any other configuration files
+          if [ -f "dagster_config/image_registry.yaml" ]; then
+            sudo cp dagster_config/image_registry.yaml ${{ env.EFS_MOUNT_PATH }}/dagster-workspace/
+          fi
+          
+      - name: Backup to S3
+        run: |
+          # Sync entire workspace to S3 for reference
+          aws s3 sync ${{ env.EFS_MOUNT_PATH }}/dagster-workspace/ s3://${{ env.S3_BUCKET_NAME }}/dagster-workspace/ \
+            --delete \
+            --exclude '*.pyc' \
+            --exclude '__pycache__/*'
+          
+          # Create deployment metadata
+          cat > deployment-metadata.json << EOF
+          {
+            "deployment_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "git_sha": "${{ github.sha }}",
+            "git_ref": "${{ github.ref }}",
+            "deployed_by": "${{ github.actor }}",
+            "teams_deployed": "$TEAMS"
+          }
+          EOF
+          
+          # Upload metadata
+          aws s3 cp deployment-metadata.json s3://${{ env.S3_BUCKET_NAME }}/dagster-workspace/metadata/latest-deployment.json
+          
+          echo "✅ Backed up to S3: s3://${{ env.S3_BUCKET_NAME }}/dagster-workspace/"
+          
+      - name: Unmount EFS
+        if: always()
+        run: |
+          sudo umount ${{ env.EFS_MOUNT_PATH }} || true
+          
+      - name: Restart ECS services
+        run: |
+          # Force new deployment to pick up changes
+          aws ecs update-service \
+            --cluster dagster-cluster \
+            --service dagster-webserver \
+            --force-new-deployment \
+            --no-cli-pager || echo "Service update failed - may not exist yet"
+            
+          aws ecs update-service \
+            --cluster dagster-cluster \
+            --service dagster-daemon \
+            --force-new-deployment \
+            --no-cli-pager || echo "Service update failed - may not exist yet"
+            
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **EFS ID**: ${{ steps.get-efs.outputs.EFS_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Backup**: s3://${{ env.S3_BUCKET_NAME }}/dagster-workspace/" >> $GITHUB_STEP_SUMMARY
+          echo "- **Teams Deployed**: $TEAMS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment Time**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 S3 Backup Contents" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          aws s3 ls s3://${{ env.S3_BUCKET_NAME }}/dagster-workspace/ --recursive | head -20 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

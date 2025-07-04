@@ -63,6 +63,12 @@ ecs-logs: ## View ECS Fargate logs
 ecs-status: ## Check ECS cluster and service status
 	@python scripts/ecs-status.py
 
+ecs-shutdown: ## Shut down ECS cluster while preserving other infrastructure
+	@python scripts/ecs-shutdown.py
+
+ecs-recreate: ## Recreate ECS cluster after shutdown
+	@python scripts/ecs-recreate.py
+
 ##@ Infrastructure
 
 infra-init: ## Initialize OpenTofu backend
@@ -128,4 +134,67 @@ efs-info: ## Show EFS information for external teams
 workspace-status: ## Show current workspace configuration and projects
 	@echo "Fetching workspace status from EFS..."
 	@./scripts/workspace-status.sh
+
+##@ EFS Management
+
+efs-mount: ## Mount EFS locally for direct DAG management
+	@echo "Mounting EFS filesystem..."
+	@EFS_ID=$$(tofu -chdir=$(INFRA_DIR) output -raw efs_file_system_id 2>/dev/null || echo ""); \
+	if [ -z "$$EFS_ID" ]; then \
+		echo "❌ Error: EFS not found. Run 'make infra-apply' first"; \
+		exit 1; \
+	fi; \
+	MOUNT_POINT="./efs-mount"; \
+	mkdir -p $$MOUNT_POINT; \
+	if mount | grep -q $$MOUNT_POINT; then \
+		echo "EFS already mounted at $$MOUNT_POINT"; \
+	else \
+		echo "Installing EFS utilities..."; \
+		if ! command -v mount.efs &> /dev/null; then \
+			git clone https://github.com/aws/efs-utils /tmp/efs-utils 2>/dev/null || true; \
+			cd /tmp/efs-utils && ./build-deb.sh && sudo apt-get install -y ./build/amazon-efs-utils*.deb; \
+		fi; \
+		sudo mount -t efs -o tls $$EFS_ID:/ $$MOUNT_POINT && \
+		echo "✅ EFS mounted at $$MOUNT_POINT"; \
+		echo "📁 Access your DAGs at: $$MOUNT_POINT/dagster-workspace/projects/"; \
+	fi
+
+efs-unmount: ## Unmount EFS
+	@MOUNT_POINT="./efs-mount"; \
+	if mount | grep -q $$MOUNT_POINT; then \
+		sudo umount $$MOUNT_POINT && \
+		echo "✅ EFS unmounted"; \
+		rmdir $$MOUNT_POINT 2>/dev/null || true; \
+	else \
+		echo "EFS not currently mounted"; \
+	fi
+
+efs-sync-to-s3: ## Archive current EFS DAGs to S3
+	@echo "Archiving DAGs to S3..."
+	@MOUNT_POINT="./efs-mount"; \
+	if ! mount | grep -q $$MOUNT_POINT; then \
+		echo "❌ Error: EFS not mounted. Run 'make efs-mount' first"; \
+		exit 1; \
+	fi; \
+	S3_BUCKET=$$(tofu -chdir=$(INFRA_DIR) output -raw s3_bucket_name 2>/dev/null || echo ""); \
+	if [ -z "$$S3_BUCKET" ]; then \
+		echo "❌ Error: S3 bucket not found. Run 'make infra-apply' first"; \
+		exit 1; \
+	fi; \
+	TIMESTAMP=$$(date +%Y%m%d-%H%M%S); \
+	aws s3 sync $$MOUNT_POINT/dagster-workspace/ s3://$$S3_BUCKET/archive/$$TIMESTAMP/ \
+		--exclude "*.pyc" \
+		--exclude "__pycache__/*" && \
+	echo "✅ Archived to s3://$$S3_BUCKET/archive/$$TIMESTAMP/"
+
+efs-status: ## Show EFS mount status and contents
+	@MOUNT_POINT="./efs-mount"; \
+	if mount | grep -q $$MOUNT_POINT; then \
+		echo "✅ EFS is mounted at $$MOUNT_POINT"; \
+		echo ""; \
+		echo "📁 Contents:"; \
+		ls -la $$MOUNT_POINT/dagster-workspace/projects/ 2>/dev/null || echo "No projects found"; \
+	else \
+		echo "❌ EFS is not mounted. Run 'make efs-mount' to mount"; \
+	fi
 

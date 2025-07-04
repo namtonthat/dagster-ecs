@@ -52,3 +52,15 @@ variable "dagster_auth_password" {
   # No default - must be provided via terraform.tfvars
 }
 
+variable "github_org" {
+  description = "GitHub organization or username for OIDC"
+  type        = string
+  default     = "your-github-org"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name for OIDC"
+  type        = string
+  default     = "dagster-ecs"
+}
+

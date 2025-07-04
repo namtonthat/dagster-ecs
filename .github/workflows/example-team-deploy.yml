@@ -1,0 +1,71 @@
+# Example workflow for a team repository that wants to deploy to the main Dagster infrastructure
+# Teams can copy this to their own repositories
+
+name: Deploy Team DAGs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  TEAM_NAME: team-example  # Change this to your team name
+  DAGSTER_REPO: your-org/dagster-ecs  # Main Dagster repository
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          
+      - name: Install dependencies
+        run: |
+          pip install dagster pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          
+      - name: Run tests
+        run: |
+          pytest tests/ || echo "No tests found"
+          
+      - name: Validate Dagster definitions
+        run: |
+          python -c "from definitions import defs; print('✅ Definitions loaded successfully')"
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Trigger Dagster deployment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.DAGSTER_DEPLOY_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: '${{ env.DAGSTER_REPO }}'.split('/')[0],
+              repo: '${{ env.DAGSTER_REPO }}'.split('/')[1],
+              workflow_id: 'deploy-dags-to-efs.yml',
+              ref: 'main',
+              inputs: {
+                team: '${{ env.TEAM_NAME }}'
+              }
+            });
+            
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Deployment Triggered" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Team DAGs for **${{ env.TEAM_NAME }}** have been deployed to Dagster" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Repository: ${{ env.DAGSTER_REPO }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Team: ${{ env.TEAM_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

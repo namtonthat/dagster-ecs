@@ -75,3 +75,13 @@ output "dagster_access_note" {
     Full URL: http://${aws_lb.main.dns_name}
   EOT
 }
+
+output "github_actions_role_arn" {
+  description = "IAM role ARN for GitHub Actions (add as AWS_DEPLOY_ROLE_ARN secret)"
+  value       = aws_iam_role.github_actions_deploy.arn
+}
+
+output "efs_dns_name" {
+  description = "EFS DNS name for mounting"
+  value       = aws_efs_file_system.dagster_workspace.dns_name
+}
